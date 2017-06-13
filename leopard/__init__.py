@@ -8,6 +8,7 @@ from matplotlib.figure import Figure
 import pandas as pd, re
 from itertools import count
 from collections import OrderedDict
+from unittest.mock import Mock
 
 reportsDir = expanduser('~/Reports/')
 
@@ -124,13 +125,14 @@ class Section:
     For adding subsections, a method is provided.
     """
     def __init__(self,title,text,
-                 figures=None,tables=None,subsections=None,
+                 figures=None,tables=None,subsections=None,code=None,
                  tablehead=None,tablecolumns=None,clearpage=False):
         self.title = title.strip()
         self.p = text.strip()
         self.figs = OrderedDict(figures) if figures else OrderedDict()
         self.tabs = OrderedDict(tables) if tables else OrderedDict()
         self.subs = subsections if subsections else []
+        self.code = code
         self.settings = {'tablehead':tablehead,
                          'tablecolumns':tablecolumns,
                          'clearpage':clearpage,
@@ -257,6 +259,27 @@ class Section:
                         table.add_row(row)
                     table.add_hline(1)
                     #table.add_empty_row()
+
+    @staticmethod
+    def sectionFromFunction(function,*args,**kwargs):
+        """
+        This staticmethod executes the function that is passed with the provided args and kwargs.
+        The first line of the function docstring is used as the section title, the comments
+        within the function body are parsed and added as the section text.
+        The function should return an ordered dict of figures and tables, that are then
+        attached to the section.
+
+        >>> def exampleFunction(a,b=None):
+        ...     'Section title of example function'
+        ...     # Mock figures included
+        ...     figures = Mock()
+        ...     # Mock tables included
+        ...     tables = Mock()
+        ...     return figures, tables
+        ... Section.sectionFromFunction(exampleFunction,Mock(),a=Mock())
+        <leopard.Section at ...>
+        """
+        pass
 
 # Helper functions
 def makeFigFromFile(filename,*args,**kwargs):
