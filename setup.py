@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name = 'leopard',
-      version = '0.1',
+      version = '0.1.1',
       description = 'Fast lab reporting python package',
       url = 'https://github.com/beukueb/leopard',
       author = 'Christophe Van Neste',
@@ -10,6 +10,8 @@ setup(name = 'leopard',
       packages = ['leopard'],
       install_requires = [
           'pylatex',
+          'matplotlib',
+          'pandas',
       ],
       zip_safe = False,
       test_suite = 'nose.collector',
