@@ -5,7 +5,7 @@ Module for Lab Speleman reporting
 from os.path import expanduser
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-import pandas as pd, re
+import pandas as pd, re, inspect
 from itertools import count
 from collections import OrderedDict
 from unittest.mock import Mock
@@ -41,7 +41,7 @@ class Report:
           see Section docs for further info
         """
         section = Section(*args,**kwargs)
-        if toSection:
+        if toSection is not None:
             if type(toSection) is int: toSection = (toSection,)
             self.sections[toSection[0]].append_subsection(section,toSection[1:])
         else:
@@ -137,19 +137,11 @@ class Section:
                          'tablecolumns':tablecolumns,
                          'clearpage':clearpage,
                          'doubleslashnewline':True}
-        self.checkValidity()
 
-    def checkValidity(self):
-        assert type(self.title) == str
-        assert type(self.p) == str
-        for f in self.figs:
-            assert type(f) == Figure
-        for t in self.tabs:
-            assert type(t) == pd.DataFrame
-        for s in self.subs:
-            assert type(s) == Section
-            s.checkValidity()
-        
+    def __repr__(self):
+        return "<Section @ {}{}>".format(self.title[:50],
+                                       '' if len(self.title)<=50 else '...')
+    
     def append_subsection(self,section,toSection=()):
         """
         toSection has to be a tuple specifying the section to
@@ -269,17 +261,20 @@ class Section:
         The function should return an ordered dict of figures and tables, that are then
         attached to the section.
 
-        >>> def exampleFunction(a,b=None):
-        ...     'Section title of example function'
-        ...     # Mock figures included
-        ...     figures = Mock()
-        ...     # Mock tables included
-        ...     tables = Mock()
+        >>> # Section title of example function
+        ... def exampleFunction(a,b=None):
+        ...     'Mock figures and tables included'
+        ...     figures = (('fig1',Mock()),('fig2',Mock()))
+        ...     tables = (('tab1',Mock()),('tab2',Mock()))
         ...     return figures, tables
-        ... Section.sectionFromFunction(exampleFunction,Mock(),a=Mock())
-        <leopard.Section at ...>
+        >>> Section.sectionFromFunction(exampleFunction,Mock(),b=Mock())
+        <Section @ Section title of example function>
         """
-        pass
+        figures, tables = function(*args,**kwargs)
+        title = inspect.getcomments(function)[1:].strip()
+        text = inspect.getdoc(function)
+        code = inspect.getsource(function)
+        return Section(title=title,text=text,figures=figures,tables=tables,code=code)
 
 # Helper functions
 def makeFigFromFile(filename,*args,**kwargs):
