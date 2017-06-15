@@ -47,14 +47,18 @@ class Report:
         else:
             self.sections.append(section)
             self.lastSection = section
+        return section
 
     def appendToLastSection(self,*args,**kwargs):
         """
         Make subsection and append to last appended section
         """
-        self.append(*args,toSection=-1,**kwargs)
+        return self.append(*args,toSection=-1,**kwargs)
 
     def list(self):
+        """
+        Get an overview of the report content list
+        """
         for i in range(len(self.sections)):
             self.sections[i].list(walkTrace=(i,))
         
