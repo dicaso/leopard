@@ -3,7 +3,7 @@
 Module for Lab Speleman reporting
 """
 from os.path import expanduser
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt, re
 from matplotlib.figure import Figure
 import pandas as pd, re, inspect
 from itertools import count
@@ -12,7 +12,171 @@ from unittest.mock import Mock
 
 reportsDir = expanduser('~/Reports/')
 
-class Report:
+class Section:
+    """
+    Report sections.
+    Defines methods dealing with the structure of
+    sections, and section specific output.
+
+    tablehead => set to integer to only show DataFrame.head(tablehead) rows
+    in this section
+
+    For adding subsections, a method is provided.
+    """
+    def __init__(self,title,text,
+                 figures=None,tables=None,subsections=None,code=None,
+                 tablehead=None,tablecolumns=None,clearpage=False):
+        self.title = title.strip()
+        self.p = text.strip()
+        self.figs = OrderedDict(figures) if figures else OrderedDict()
+        self.tabs = OrderedDict(tables) if tables else OrderedDict()
+        self.subs = subsections if subsections else []
+        self.code = code
+        self.settings = {'tablehead':tablehead,
+                         'tablecolumns':tablecolumns,
+                         'clearpage':clearpage,
+                         'doubleslashnewline':False}
+
+    def __repr__(self):
+        return "<Section @ {}{}>".format(self.title[:50],
+                                       '' if len(self.title)<=50 else '...')
+    
+    def append_subsection(self,section,toSection=()):
+        """
+        toSection has to be a tuple specifying the section to
+        which the subsection will be appended.
+        """
+        if toSection:
+            self.subs[toSection[0]].append_subsection(section,toSection=toSection[1:])
+        else:
+            self.subs.append(section)
+            self.lastSubSection = section
+
+    @staticmethod
+    def sectionWalker(section,callback,walkTrace,*args,**kwargs):
+        """
+        callback needs to be a function that handles different 
+        Section elements appropriately
+        walkTrace needs to be a tuple, indicate the route to the section, e.g. (1,2,0)
+        """
+        callback(section,walkTrace,*args,case='sectionmain',**kwargs)
+        c = count(1)
+        for f in section.figs.items():
+            callback(section,walkTrace,*args,case='figure',element=f,**kwargs)
+        c = count(1)
+        for t in section.tabs.items():
+            callback(section,walkTrace,*args,case='table',element=t,**kwargs)
+        c = count(1)
+        for s in section.subs:
+            Section.sectionWalker(s,callback,walkTrace+(next(c),),*args,**kwargs)
+
+    def walkerWrapper(callback):
+        def wrapper(*args,**kwargs):
+            #args[0] => has to be the current walked section
+            return Section.sectionWalker(args[0],callback,*args[1:],**kwargs)
+        return wrapper
+
+    @walkerWrapper
+    def list(self,walkTrace,case=None,element=None):
+        if case == 'sectionmain': print(walkTrace,self.title)   
+
+    def sectionOutZip(self,zipcontainer,zipdir='',figtype='png'):
+        from io import StringIO
+        with zipcontainer.open(zipdir+'section.txt',mode='w') as zipf:
+            text = self.p if not self.settings['doubleslashnewline'] else self.p.replace('//','\n')
+            zipf.write('# {}\n{}'.format(self.title,text).encode())
+        c = count(1)
+        for f in self.figs.values(): #TODO adapt to items
+            with zipcontainer.open(zipdir+'fig{}.{}'.format(next(c),figtype),mode='w') as zipf:
+                f.savefig(zipf,format=figtype,transparent=True)
+        c = count(1)
+        for t in self.tabs.values(): #TODO adapt to items
+            with zipcontainer.open(zipdir+'table{}.csv'.format(next(c)),mode='w') as zipf:
+                b = StringIO()
+                t.to_csv(b,sep=';',decimal=',')
+                b.seek(0)
+                zipf.write(b.read().encode())
+        c = count(1)
+        for s in self.subs:
+            s.sectionOutZip(zipcontainer,'{}s{}/'.format(zipdir,next(c)),figtype=figtype)
+
+    @walkerWrapper
+    def sectionsPDF(self,walkTrace,case=None,element=None,doc=None):
+        import pylatex as pl
+        if case == 'sectionmain':
+            if self.settings['clearpage']: doc.append(pl.utils.NoEscape(r'\clearpage'))
+            with doc.create(pl.Section(self.title) if len(walkTrace) == 1 else
+                            pl.Subsection(self.title) if len(walkTrace) == 2 else
+                            pl.Subsubsection(self.title)):
+                text = (self.p.replace('\n',' ').replace('//','\n')
+                        if self.settings['doubleslashnewline'] else
+                        newline.subn(r'\g<1> \g<2>',self.p)[0])
+                if r'\ref' not in text: doc.append(text)
+                else:
+                    figrefs = re.compile(r'\\ref\{figref\d+\}')
+                    #latexcode = re.compile(r'&@\\.+')
+                    lastpos = 0
+                    for fr in figrefs.finditer(text):
+                        doc.append(text[lastpos:fr.start()])
+                        doc.append(pl.utils.NoEscape(text[fr.start():fr.end()]))
+                        lastpos = fr.end()
+                    doc.append(text[lastpos:])
+                
+        if case == 'figure':
+            width = r'1\textwidth'
+            figtitle,fig = element
+            #if fig._suptitle: fig.suptitle('Figure {}: {}'.format(fig.number,fig._suptitle.get_text()))
+            #figtitle = fig._suptitle.get_text() if fig._suptitle else ''
+            #fig.suptitle('')
+            with doc.create(pl.Figure(position='htbp')) as plot:
+                plt.figure(fig.number)
+                plot.add_plot(width=pl.NoEscape(width))
+                plot.add_caption(figtitle)
+                plot.append(pl.utils.NoEscape(r'\label{figref'+str(fig.number)+r'}'))
+            #fig.suptitle(figtitle if figtitle else None)
+            
+        if case == 'table':
+            caption,t = element
+            t = pdSeriesToFrame(t) if type(t) == pd.Series else t
+            if self.settings['tablehead']:
+                t = t.head(self.settings['tablehead'])
+            if self.settings['tablecolumns']:
+                t = t[self.settings['tablecolumns']]
+            with doc.create(pl.Table(position='ht')) as tablenv:
+                tablenv.add_caption(caption)
+                with doc.create(pl.Tabular('r|'+'l'*len(t.columns))) as table:
+                    table.add_hline()
+                    table.add_row(('',)+tuple(t.columns))
+                    for row in t.to_records():
+                        table.add_row(row)
+                    table.add_hline(1)
+                    #table.add_empty_row()
+
+    @staticmethod
+    def sectionFromFunction(function,*args,**kwargs):
+        """
+        This staticmethod executes the function that is passed with the provided args and kwargs.
+        The first line of the function docstring is used as the section title, the comments
+        within the function body are parsed and added as the section text.
+        The function should return an ordered dict of figures and tables, that are then
+        attached to the section.
+
+        >>> # Section title of example function
+        ... def exampleFunction(a,b=None):
+        ...     'Mock figures and tables included'
+        ...     figures = (('fig1',Mock()),('fig2',Mock()))
+        ...     tables = (('tab1',Mock()),('tab2',Mock()))
+        ...     return figures, tables
+        >>> Section.sectionFromFunction(exampleFunction,Mock(),b=Mock())
+        <Section @ Section title of example function>
+        """
+        figures, tables = function(*args,**kwargs)
+        title = inspect.getcomments(function)[1:].strip()
+        text = inspect.getdoc(function)
+        code = inspect.getsource(function)
+        return Section(title=title,text=text,figures=figures,tables=tables,code=code)
+
+class Report(Section):
     """
     Contains as main attribute a list of sections.
     Defines methods of outputting the sections.
@@ -30,6 +194,14 @@ class Report:
         self.author = author
         self.addTime = addTime
 
+    def __getitem__(self,key):
+        try: return self.sections[obj]
+        except TypeError:
+            try: return self._sections[obj]
+            except (AttributeError,KeyError) as e:
+                self._sections = {s.title:s for s in self.sections}
+                return self._sections[obj]
+    
     def append(self,*args,toSection=None,**kwargs):
         """
         If toSection is None, section is appended to the main section list.
@@ -116,171 +288,8 @@ class Report:
 
         # Generate pdf
         doc.generate_pdf(self.outfile,**kwargs)
-
-class Section:
-    """
-    Report sections.
-    Defines methods dealing with the structure of
-    sections, and section specific output.
-
-    tablehead => set to integer to only show DataFrame.head(tablehead) rows
-    in this section
-
-    For adding subsections, a method is provided.
-    """
-    def __init__(self,title,text,
-                 figures=None,tables=None,subsections=None,code=None,
-                 tablehead=None,tablecolumns=None,clearpage=False):
-        self.title = title.strip()
-        self.p = text.strip()
-        self.figs = OrderedDict(figures) if figures else OrderedDict()
-        self.tabs = OrderedDict(tables) if tables else OrderedDict()
-        self.subs = subsections if subsections else []
-        self.code = code
-        self.settings = {'tablehead':tablehead,
-                         'tablecolumns':tablecolumns,
-                         'clearpage':clearpage,
-                         'doubleslashnewline':True}
-
-    def __repr__(self):
-        return "<Section @ {}{}>".format(self.title[:50],
-                                       '' if len(self.title)<=50 else '...')
     
-    def append_subsection(self,section,toSection=()):
-        """
-        toSection has to be a tuple specifying the section to
-        which the subsection will be appended.
-        """
-        if toSection:
-            self.subs[toSection[0]].append_subsection(section,toSection=toSection[1:])
-        else:
-            self.subs.append(section)
-            self.lastSubSection = section
-
-    @staticmethod
-    def sectionWalker(section,callback,walkTrace,*args,**kwargs):
-        """
-        callback needs to be a function that handles different 
-        Section elements appropriately
-        walkTrace needs to be a tuple, indicate the route to the section, e.g. (1,2,0)
-        """
-        callback(section,walkTrace,*args,case='sectionmain',**kwargs)
-        c = count(1)
-        for f in section.figs.items():
-            callback(section,walkTrace,*args,case='figure',element=f,**kwargs)
-        c = count(1)
-        for t in section.tabs.items():
-            callback(section,walkTrace,*args,case='table',element=t,**kwargs)
-        c = count(1)
-        for s in section.subs:
-            Section.sectionWalker(s,callback,walkTrace+(next(c),),*args,**kwargs)
-
-    def walkerWrapper(callback):
-        def wrapper(*args,**kwargs):
-            #args[0] => has to be the current walked section
-            return Section.sectionWalker(args[0],callback,*args[1:],**kwargs)
-        return wrapper
-
-    @walkerWrapper
-    def list(self,walkTrace,case=None,element=None):
-        if case == 'sectionmain': print(walkTrace,self.title)   
-
-    def sectionOutZip(self,zipcontainer,zipdir='',figtype='png'):
-        from io import StringIO
-        with zipcontainer.open(zipdir+'section.txt',mode='w') as zipf:
-            text = self.p if not self.settings['doubleslashnewline'] else self.p.replace('//','\n')
-            zipf.write('# {}\n{}'.format(self.title,text).encode())
-        c = count(1)
-        for f in self.figs.values(): #TODO adapt to items
-            with zipcontainer.open(zipdir+'fig{}.{}'.format(next(c),figtype),mode='w') as zipf:
-                f.savefig(zipf,format=figtype,transparent=True)
-        c = count(1)
-        for t in self.tabs.values(): #TODO adapt to items
-            with zipcontainer.open(zipdir+'table{}.csv'.format(next(c)),mode='w') as zipf:
-                b = StringIO()
-                t.to_csv(b,sep=';',decimal=',')
-                b.seek(0)
-                zipf.write(b.read().encode())
-        c = count(1)
-        for s in self.subs:
-            s.sectionOutZip(zipcontainer,'{}s{}/'.format(zipdir,next(c)),figtype=figtype)
-
-    @walkerWrapper
-    def sectionsPDF(self,walkTrace,case=None,element=None,doc=None):
-        import pylatex as pl
-        if case == 'sectionmain':
-            if self.settings['clearpage']: doc.append(pl.utils.NoEscape(r'\clearpage'))
-            with doc.create(pl.Section(self.title) if len(walkTrace) == 1 else
-                            pl.Subsection(self.title) if len(walkTrace) == 2 else
-                            pl.Subsubsection(self.title)):
-                text = (self.p.replace('\n',' ').replace('//','\n')
-                        if self.settings['doubleslashnewline'] else self.p)
-                if r'\ref' not in text: doc.append(text)
-                else:
-                    figrefs = re.compile(r'\\ref\{figref\d+\}')
-                    #latexcode = re.compile(r'&@\\.+')
-                    lastpos = 0
-                    for fr in figrefs.finditer(text):
-                        doc.append(text[lastpos:fr.start()])
-                        doc.append(pl.utils.NoEscape(text[fr.start():fr.end()]))
-                        lastpos = fr.end()
-                    doc.append(text[lastpos:])
-                
-        if case == 'figure':
-            width = r'1\textwidth'
-            figtitle,fig = element
-            #if fig._suptitle: fig.suptitle('Figure {}: {}'.format(fig.number,fig._suptitle.get_text()))
-            #figtitle = fig._suptitle.get_text() if fig._suptitle else ''
-            #fig.suptitle('')
-            with doc.create(pl.Figure(position='htbp')) as plot:
-                plt.figure(fig.number)
-                plot.add_plot(width=pl.NoEscape(width))
-                plot.add_caption(figtitle)
-                plot.append(pl.utils.NoEscape(r'\label{figref'+str(fig.number)+r'}'))
-            #fig.suptitle(figtitle if figtitle else None)
-            
-        if case == 'table':
-            caption,t = element
-            t = pdSeriesToFrame(t) if type(t) == pd.Series else t
-            if self.settings['tablehead']:
-                t = t.head(self.settings['tablehead'])
-            if self.settings['tablecolumns']:
-                t = t[self.settings['tablecolumns']]
-            with doc.create(pl.Table(position='ht')) as tablenv:
-                tablenv.add_caption(caption)
-                with doc.create(pl.Tabular('r|'+'l'*len(t.columns))) as table:
-                    table.add_hline()
-                    table.add_row(('',)+tuple(t.columns))
-                    for row in t.to_records():
-                        table.add_row(row)
-                    table.add_hline(1)
-                    #table.add_empty_row()
-
-    @staticmethod
-    def sectionFromFunction(function,*args,**kwargs):
-        """
-        This staticmethod executes the function that is passed with the provided args and kwargs.
-        The first line of the function docstring is used as the section title, the comments
-        within the function body are parsed and added as the section text.
-        The function should return an ordered dict of figures and tables, that are then
-        attached to the section.
-
-        >>> # Section title of example function
-        ... def exampleFunction(a,b=None):
-        ...     'Mock figures and tables included'
-        ...     figures = (('fig1',Mock()),('fig2',Mock()))
-        ...     tables = (('tab1',Mock()),('tab2',Mock()))
-        ...     return figures, tables
-        >>> Section.sectionFromFunction(exampleFunction,Mock(),b=Mock())
-        <Section @ Section title of example function>
-        """
-        figures, tables = function(*args,**kwargs)
-        title = inspect.getcomments(function)[1:].strip()
-        text = inspect.getdoc(function)
-        code = inspect.getsource(function)
-        return Section(title=title,text=text,figures=figures,tables=tables,code=code)
-
-# Helper functions
+# Utilities
 def makeFigFromFile(filename,*args,**kwargs):
     """
     Renders an image in a matplotlib figure, so it can be added to reports 
@@ -295,3 +304,5 @@ def makeFigFromFile(filename,*args,**kwargs):
 def pdSeriesToFrame(pdseries,colname='value'):
     "Returns a series as a pd dataframe"
     return pd.DataFrame(pdseries,columns=[colname])
+
+newline = re.compile(r'(\w)\n(\w)')
