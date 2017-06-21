@@ -41,16 +41,30 @@ class Section:
         return "<Section @ {}{}>".format(self.title[:50],
                                        '' if len(self.title)<=50 else '...')
     
-    def append_subsection(self,section,toSection=()):
+    def __getitem__(self,key):
+        try: return self.subs[key]
+        except TypeError:
+            try: return self._subs[key]
+            except (AttributeError,KeyError) as e:
+                self._subs = {s.title:s for s in self.subs}
+                return self._subs[key]
+
+    def append(self,*args,toSection=None,**kwargs):
         """
-        toSection has to be a tuple specifying the section to
-        which the subsection will be appended.
+        If toSection is None, section is appended to the main section/subs list.
+        Else if toSection is int or (int,int,...), it gets added to the subs (subsection)
+        list of the specified section.
+
+        *args and **kwargs are processed by Section class initiation
         """
-        if toSection:
-            self.subs[toSection[0]].append_subsection(section,toSection=toSection[1:])
+        if not toSection and toSection is not 0:
+            s = Section(*args,**kwargs)
+            self.subs.append(s)
+            self.lastSection = s
         else:
-            self.subs.append(section)
-            self.lastSubSection = section
+            if type(toSection) is int: toSection = (toSection,)
+            s = self.subs[toSection[0]].append(*args,toSection=toSection[1:],**kwargs)
+        return s
 
     @staticmethod
     def sectionWalker(section,callback,walkTrace,*args,**kwargs):
@@ -185,48 +199,14 @@ class Report(Section):
     """
     def __init__(self,title,intro='',conclusion='',outname='',outfile=None,author=None,addTime=True):
         import time
-        self.sections = []
-        self.title = title.strip()
-        self.intro = intro.strip()
+        super().__init__(title=title,text=intro)
+        self.sections = self.subs #Report sections can be accessed by both sections and subs attribute
         self.conclusion = conclusion.strip()
         self.outfile = outfile if outfile else '{}{}{}'.format(reportsDir,time.strftime('%Y_%m_%d'),
                                                                '_'+outname if outname else '')
         self.author = author
         self.addTime = addTime
-
-    def __getitem__(self,key):
-        try: return self.sections[obj]
-        except TypeError:
-            try: return self._sections[obj]
-            except (AttributeError,KeyError) as e:
-                self._sections = {s.title:s for s in self.sections}
-                return self._sections[obj]
     
-    def append(self,*args,toSection=None,**kwargs):
-        """
-        If toSection is None, section is appended to the main section list.
-        Else if toSection is int or (int,int,...), it gets added to the subs (subsection)
-        list of the specified section.
-
-        *args and **kwargs are processed by Section class:
-          title, text, figures=None, tables=None, subsections=None
-          see Section docs for further info
-        """
-        section = Section(*args,**kwargs)
-        if toSection is not None:
-            if type(toSection) is int: toSection = (toSection,)
-            self.sections[toSection[0]].append_subsection(section,toSection[1:])
-        else:
-            self.sections.append(section)
-            self.lastSection = section
-        return section
-
-    def appendToLastSection(self,*args,**kwargs):
-        """
-        Make subsection and append to last appended section
-        """
-        return self.append(*args,toSection=-1,**kwargs)
-
     def list(self):
         """
         Get an overview of the report content list
@@ -244,7 +224,7 @@ class Report(Section):
             with zipcontainer.open('summary.txt',mode='w') as zipf:
                 zipf.write('# {}\n\n{}\n{}'.format(
                     self.title,
-                    self.intro,
+                    self.p,
                     ('\n## Conclusion\n' if self.conclusion else '')+self.conclusion
                 ).encode())
             c = count(1)
@@ -272,9 +252,9 @@ class Report(Section):
         doc.append(pl.utils.NoEscape(r'\maketitle'))
 
         # Append introduction
-        if self.intro:
+        if self.p:
             with doc.create(pl.Section('Introduction')):
-                doc.append(self.intro)
+                doc.append(self.p)
 
         # Sections
         c = count(0)

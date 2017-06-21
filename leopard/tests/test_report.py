@@ -25,11 +25,6 @@ class test_report(TestCase):
         # Check that it was indeed added as subsection to section 0
         self.assertEqual(len(self.report.sections[0].subs),1)
         
-    def test_appendToLastSection(self):
-        self.report.append(Mock(),Mock(),**self.kwargs)
-        self.report.appendToLastSection(Mock(),Mock(),**self.kwargs)
-        self.assertEqual(len(self.report.lastSection.subs),1)
-
     def test_list(self):
         self.report.sections += [Mock(),Mock(),Mock()]
         self.report.list()
