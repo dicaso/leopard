@@ -53,6 +53,6 @@ class test_section(TestCase):
         zipcontainer = MagicMock()
         self.section.sectionOutZip(zipcontainer=zipcontainer,zipdir='mockdir/',figtype='mockfig')
         zipcontainer.open.assert_any_call('mockdir/section.txt', mode='w')
-        zipcontainer.open.assert_any_call('mockdir/fig1title.mockfig', mode='w')
-        zipcontainer.open.assert_any_call('mockdir/table1title.csv', mode='w')
+        zipcontainer.open.assert_any_call('mockdir/fig1_fig1title.mockfig', mode='w')
+        zipcontainer.open.assert_any_call('mockdir/table1_tab1title.csv', mode='w')
         

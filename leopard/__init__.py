@@ -103,19 +103,19 @@ class Section:
             text = self.p if not self.settings['doubleslashnewline'] else self.p.replace('//','\n')
             zipf.write('# {}\n{}'.format(self.title,text).encode())
         c = count(1)
-        for f in self.figs.values(): #TODO adapt to items
-            with zipcontainer.open(zipdir+'fig{}.{}'.format(next(c),figtype),mode='w') as zipf:
+        for ftitle,f in self.figs.items():
+            with zipcontainer.open(zipdir+'fig{}_{}.{}'.format(next(c),ftitle.replace(' ','_'),figtype),mode='w') as zipf:
                 f.savefig(zipf,format=figtype,transparent=True)
         c = count(1)
-        for t in self.tabs.values(): #TODO adapt to items
-            with zipcontainer.open(zipdir+'table{}.csv'.format(next(c)),mode='w') as zipf:
+        for ttitle,t in self.tabs.items():
+            with zipcontainer.open(zipdir+'table{}_{}.csv'.format(next(c),ttitle.replace(' ','_')),mode='w') as zipf:
                 b = StringIO()
                 t.to_csv(b,sep=';',decimal=',')
                 b.seek(0)
                 zipf.write(b.read().encode())
         c = count(1)
         for s in self.subs:
-            s.sectionOutZip(zipcontainer,'{}s{}/'.format(zipdir,next(c)),figtype=figtype)
+            s.sectionOutZip(zipcontainer,'{}s{}_{}/'.format(zipdir,next(c),s.title.replace(' ','_')),figtype=figtype)
 
     @walkerWrapper
     def sectionsPDF(self,walkTrace,case=None,element=None,doc=None):
