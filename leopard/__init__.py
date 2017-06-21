@@ -38,8 +38,11 @@ class Section:
                          'doubleslashnewline':False}
 
     def __repr__(self):
-        return "<Section @ {}{}>".format(self.title[:50],
-                                       '' if len(self.title)<=50 else '...')
+        return "<{} @ {}{}>".format(
+            'Report' if 'sections' in dir(self) else 'Section',
+            self.title[:50],
+            '' if len(self.title)<=50 else '...'
+        )
     
     def __getitem__(self,key):
         try: return self.subs[key]
