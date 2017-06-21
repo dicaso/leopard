@@ -41,8 +41,8 @@ class test_report(TestCase):
 class test_section(TestCase):
     def setUp(self):
         self.kwargs = { #Mock arguments for making a section
-            'figures': (('fig1',Mock()),('fig2',Mock())),
-            'tables': (('tab1',Mock()),('tab2',Mock()))
+            'figures': (('fig1title',Mock()),('fig2title',Mock())),
+            'tables': (('tab1title',Mock()),('tab2title',Mock()))
             }
         self.section = Section(title=Mock(),text=Mock(),**self.kwargs)
 
@@ -53,6 +53,6 @@ class test_section(TestCase):
         zipcontainer = MagicMock()
         self.section.sectionOutZip(zipcontainer=zipcontainer,zipdir='mockdir/',figtype='mockfig')
         zipcontainer.open.assert_any_call('mockdir/section.txt', mode='w')
-        zipcontainer.open.assert_any_call('mockdir/fig1.mockfig', mode='w')
-        zipcontainer.open.assert_any_call('mockdir/table1.csv', mode='w')
+        zipcontainer.open.assert_any_call('mockdir/fig1title.mockfig', mode='w')
+        zipcontainer.open.assert_any_call('mockdir/table1title.csv', mode='w')
         
