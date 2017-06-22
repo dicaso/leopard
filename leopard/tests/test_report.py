@@ -6,7 +6,7 @@ from leopard import Report,Section
 
 class test_report(TestCase):
     def setUp(self):
-        self.report = Report(title=Mock(),intro=Mock(),conclusion=MagicMock(),outname='mockname')
+        self.report = Report(title=MagicMock(),intro=Mock(),conclusion=MagicMock(),outname='mockname')
         self.report.sections += [Mock(),Mock(),Mock()] #Mock sections
         self.kwargs = { #Mock arguments for making a section
             'figures': (('fig1',Mock()),('fig2',Mock())),
@@ -37,6 +37,12 @@ class test_report(TestCase):
             m.assert_called_once_with('testzipfilename.zip', 'w')
             for s in self.report.sections:
                 s.sectionOutZip.assert_called_once()
+
+    def test_outputPDF(self):
+        with patch('pylatex.Document',MagicMock()) as m1, patch('pylatex.utils.NoEscape',MagicMock()) as m2:
+            self.report.outputPDF()
+            m1().generate_pdf.assert_called_once_with('/Users/cvneste/Reports/2017_06_22_mockname')
+            m2.assert_any_call('\\maketitle')
 
 class test_section(TestCase):
     def setUp(self):

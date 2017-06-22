@@ -232,7 +232,8 @@ class Report(Section):
                 ).encode())
             c = count(1)
             for section in self.sections:
-                section.sectionOutZip(zipcontainer,'s{}/'.format(next(c)),figtype=figtype)
+                section.sectionOutZip(zipcontainer,'s{}_{}/'.format(next(c),section.title.replace(' ','_')),
+                                      figtype=figtype)
 
     def outputPDF(self,**kwargs):
         """
