@@ -1,0 +1,11 @@
+language: python
+python:
+  - "3.6"
+  - "3.6-dev" # 3.6 development branch
+  - "3.7-dev" # 3.7 development branch
+  - "nightly" # currently points to 3.7-dev
+# command to install dependencies
+install:
+  - pip install .
+# command to run tests
+script: "python3 -m nose --with-doctest --with-coverage --cover-erase --cover-package=."
