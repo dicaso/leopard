@@ -3,6 +3,7 @@
 from unittest.mock import Mock,MagicMock,patch,call
 from unittest import TestCase
 from leopard import Report,Section
+from os.path import expanduser as eu
 
 class test_report(TestCase):
     def setUp(self):
@@ -41,7 +42,7 @@ class test_report(TestCase):
     def test_outputPDF(self):
         with patch('pylatex.Document',MagicMock()) as m1, patch('pylatex.utils.NoEscape',MagicMock()) as m2:
             self.report.outputPDF()
-            m1().generate_pdf.assert_called_once_with('/Users/cvneste/Reports/2017_06_22_mockname')
+            m1().generate_pdf.assert_called_once_with(eu('~/Reports/2017_06_22_mockname'))
             m2.assert_any_call('\\maketitle')
 
 class test_section(TestCase):
