@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/beukueb/leopard.svg?branch=master)](https://travis-ci.org/beukueb/leopard)
+
 # leopard
 Fast lab reporting python package
 
