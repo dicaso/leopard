@@ -7,7 +7,8 @@ from os.path import expanduser as eu
 
 class test_report(TestCase):
     def setUp(self):
-        self.report = Report(title=MagicMock(),intro=Mock(),conclusion=MagicMock(),outname='mockname')
+        with patch('time.strftime', return_value='2017_01_01'):
+            self.report = Report(title=MagicMock(),intro=Mock(),conclusion=MagicMock(),outname='mockname')
         self.report.sections += [Mock(),Mock(),Mock()] #Mock sections
         self.kwargs = { #Mock arguments for making a section
             'figures': (('fig1',Mock()),('fig2',Mock())),
@@ -42,7 +43,7 @@ class test_report(TestCase):
     def test_outputPDF(self):
         with patch('pylatex.Document',MagicMock()) as m1, patch('pylatex.utils.NoEscape',MagicMock()) as m2:
             self.report.outputPDF()
-            m1().generate_pdf.assert_called_once_with(eu('~/Reports/2017_06_22_mockname'))
+            m1().generate_pdf.assert_called_once_with(eu('~/Reports/2017_01_01_mockname'))
             m2.assert_any_call('\\maketitle')
 
 class test_section(TestCase):
