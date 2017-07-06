@@ -36,6 +36,9 @@ class Section:
                          'tablecolumns':tablecolumns,
                          'clearpage':clearpage,
                          'doubleslashnewline':False}
+        # Initially set section upstream references to self
+        self._parentSection = self
+        self._reportSection = self
 
     def __repr__(self):
         return "<{} @ {}{}>".format(
@@ -64,6 +67,8 @@ class Section:
             s = Section(*args,**kwargs)
             self.subs.append(s)
             self.lastSection = s
+            s._parentSection = self
+            s._reportSection = self._reportSection
         else:
             if type(toSection) is int: toSection = (toSection,)
             s = self.subs[toSection[0]].append(*args,toSection=toSection[1:],**kwargs)
@@ -118,6 +123,50 @@ class Section:
             s.sectionOutZip(zipcontainer,'{}s{}_{}/'.format(zipdir,next(c),s.title.replace(' ','_')),figtype=figtype)
 
     @walkerWrapper
+    def sectionsWord(self,walkTrace,case=None,element=None,doc=None):
+        from docx.shared import Inches
+        from io import BytesIO
+        #p.add_run('bold').bold = True
+        #p.add_run(' and some ')
+        #p.add_run('italic.').italic = True
+                
+        if case == 'sectionmain':
+            if self.settings['clearpage']: doc.add_page_break()
+            
+            doc.add_heading(self.title, level = len(walkTrace))
+            doc.add_paragraph(self.p.replace('\n',' ').replace('//','\n')
+                              if self.settings['doubleslashnewline'] else
+                              renewliner(self.p))
+                
+        if case == 'figure':
+            width = Inches(5)
+            bf=BytesIO()
+            figtitle,fig = element
+            fig.savefig(bf)
+            doc.add_picture(bf, width=width)
+            doc.add_heading('Figure {}: {}'.format(
+                next(self._reportSection._fignr),
+                figtitle),level=6)
+            
+        if case == 'table':
+            caption,t = element
+            t = pdSeriesToFrame(t) if type(t) == pd.Series else t
+            if self.settings['tablehead']:
+                t = t.head(self.settings['tablehead'])
+            if self.settings['tablecolumns']:
+                t = t[self.settings['tablecolumns']]
+
+            doc.add_heading('Table {}: {}'.format(
+                next(self._reportSection._tabnr),
+                caption),level=6)
+            table = doc.add_table(t.shape[0]+1,t.shape[1]+1)
+            for tcell,col in zip(table.rows[0].cells[1:],t.columns):
+                tcell.text = str(col)
+            for trow,rrow in zip(table.rows[1:],t.to_records()):
+                for tcell,rcell in zip(trow.cells,rrow):
+                    tcell.text = str(rcell)
+
+    @walkerWrapper
     def sectionsPDF(self,walkTrace,case=None,element=None,doc=None):
         import pylatex as pl
         if case == 'sectionmain':
@@ -127,7 +176,7 @@ class Section:
                             pl.Subsubsection(self.title)):
                 text = (self.p.replace('\n',' ').replace('//','\n')
                         if self.settings['doubleslashnewline'] else
-                        newline.subn(r'\g<1> \g<2>',self.p)[0])
+                        renewliner(self.p))
                 if r'\ref' not in text: doc.append(text)
                 else:
                     figrefs = re.compile(r'\\ref\{figref\d+\}')
@@ -215,7 +264,7 @@ class Report(Section):
         Get an overview of the report content list
         """
         for i in range(len(self.sections)):
-            self.sections[i].list(walkTrace=(i,))
+            self.sections[i].list(walkTrace=(i+1,))
         
     def outputZip(self,figtype='png'):
         """
@@ -258,21 +307,52 @@ class Report(Section):
         # Append introduction
         if self.p:
             with doc.create(pl.Section('Introduction')):
-                doc.append(self.p)
+                doc.append(renewliner(self.p))
 
         # Sections
-        c = count(0)
+        c = count(1)
         for section in self.sections:
             section.sectionsPDF((next(c),),doc=doc)
 
         # Append conclusion
         if self.conclusion:
             with doc.create(pl.Section('Conclusion')):
-                doc.append(self.conclusion)
+                doc.append(renewliner(self.conclusion))
 
         # Generate pdf
         doc.generate_pdf(self.outfile,**kwargs)
-    
+
+    def outputWord(self):
+        import docx
+        #from docx.shared import Inches
+        
+        doc = docx.Document()
+        
+        doc.add_heading(self.title, level=0)
+        if self.addTime:
+            from time import localtime, strftime
+            doc.add_heading(strftime("%Y-%m-%d %H:%M:%S", localtime()), level=1)
+            
+         # Append introduction
+        if self.p:
+            doc.add_heading('Introduction',level=1)
+            doc.add_paragraph(renewliner(self.p))
+
+        # Sections
+        c = count(1)
+        self._fignr = count(1)
+        self._tabnr = count(1)
+        for section in self.sections:
+            section.sectionsWord((next(c),),doc=doc)
+
+        # Append conclusion
+        if self.conclusion:
+            doc.add_heading('Conclusion', level=1)
+            doc.add_paragraph(renewliner(self.conclusion))
+
+        # Generate Word document
+        doc.save(self.outfile+'.docx')
+        
 # Utilities
 def makeFigFromFile(filename,*args,**kwargs):
     """
@@ -289,4 +369,14 @@ def pdSeriesToFrame(pdseries,colname='value'):
     "Returns a series as a pd dataframe"
     return pd.DataFrame(pdseries,columns=[colname])
 
-newline = re.compile(r'(\w)\n(\w)')
+def renewliner(text):
+    newline = re.compile(r'(\w)\n(\w)')
+    return newline.subn(r'\g<1> \g<2>',text)[0]
+
+class FigureDict(OrderedDict):
+    def __init__(self, *args, section=None, **kwds):
+        super().__init__(*args, **kwds)
+        self._section = section 
+        
+    def __setitem__(self, key, figure, **kwargs):
+        super().__setitem__(key,figure,**kwargs)

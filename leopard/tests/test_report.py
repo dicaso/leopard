@@ -30,7 +30,7 @@ class test_report(TestCase):
         
     def test_list(self):
         self.report.list()
-        self.report.sections[-1].list.assert_called_with(walkTrace=(2,))
+        self.report.sections[-1].list.assert_called_with(walkTrace=(3,))
 
     def test_outputZip(self):
         with patch('zipfile.ZipFile',MagicMock()) as m:
@@ -41,7 +41,9 @@ class test_report(TestCase):
                 s.sectionOutZip.assert_called_once()
 
     def test_outputPDF(self):
-        with patch('pylatex.Document',MagicMock()) as m1, patch('pylatex.utils.NoEscape',MagicMock()) as m2:
+        with patch('pylatex.Document',MagicMock()) as m1,\
+             patch('pylatex.utils.NoEscape',MagicMock()) as m2,\
+             patch('re.compile',MagicMock()) as m3:
             self.report.outputPDF()
             m1().generate_pdf.assert_called_once_with(eu('~/Reports/2017_01_01_mockname'))
             m2.assert_any_call('\\maketitle')

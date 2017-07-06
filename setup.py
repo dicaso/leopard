@@ -10,6 +10,7 @@ setup(name = 'leopard',
       packages = ['leopard'],
       install_requires = [
           'pylatex',
+          'python-docx',
           'matplotlib',
           'pandas',
       ],
