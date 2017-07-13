@@ -100,7 +100,29 @@ class Section:
 
     @walkerWrapper
     def list(self,walkTrace,case=None,element=None):
-        if case == 'sectionmain': print(walkTrace,self.title)   
+        if case == 'sectionmain': print(walkTrace,self.title)
+
+    @walkerWrapper
+    def listFigures(self,walkTrace,case=None,element=None):
+        if case == 'sectionmain': print(walkTrace,self.title)
+        if case == 'figure':
+            caption,fig = element
+            try:
+                print(walkTrace,fig._leopardref,caption)
+            except AttributeError:
+                fig._leopardref = next(self._reportSection._fignr)
+                print(walkTrace,fig._leopardref,caption)
+
+    @walkerWrapper
+    def listTables(self,walkTrace,case=None,element=None):
+        if case == 'sectionmain': print(walkTrace,self.title)
+        if case == 'table':
+            caption,tab = element
+            try:
+                print(walkTrace,tab._leopardref,caption)
+            except AttributeError:
+                tab._leopardref = next(self._reportSection._tabnr)
+                print(walkTrace,tab._leopardref,caption)
 
     def sectionOutZip(self,zipcontainer,zipdir='',figtype='png'):
         from io import StringIO
@@ -121,50 +143,6 @@ class Section:
         c = count(1)
         for s in self.subs:
             s.sectionOutZip(zipcontainer,'{}s{}_{}/'.format(zipdir,next(c),s.title.replace(' ','_')),figtype=figtype)
-
-    @walkerWrapper
-    def sectionsWord(self,walkTrace,case=None,element=None,doc=None):
-        from docx.shared import Inches
-        from io import BytesIO
-        #p.add_run('bold').bold = True
-        #p.add_run(' and some ')
-        #p.add_run('italic.').italic = True
-                
-        if case == 'sectionmain':
-            if self.settings['clearpage']: doc.add_page_break()
-            
-            doc.add_heading(self.title, level = len(walkTrace))
-            doc.add_paragraph(self.p.replace('\n',' ').replace('//','\n')
-                              if self.settings['doubleslashnewline'] else
-                              renewliner(self.p))
-                
-        if case == 'figure':
-            width = Inches(5)
-            bf=BytesIO()
-            figtitle,fig = element
-            fig.savefig(bf)
-            doc.add_picture(bf, width=width)
-            doc.add_heading('Figure {}: {}'.format(
-                next(self._reportSection._fignr),
-                figtitle),level=6)
-            
-        if case == 'table':
-            caption,t = element
-            t = pdSeriesToFrame(t) if type(t) == pd.Series else t
-            if self.settings['tablehead']:
-                t = t.head(self.settings['tablehead'])
-            if self.settings['tablecolumns']:
-                t = t[self.settings['tablecolumns']]
-
-            doc.add_heading('Table {}: {}'.format(
-                next(self._reportSection._tabnr),
-                caption),level=6)
-            table = doc.add_table(t.shape[0]+1,t.shape[1]+1)
-            for tcell,col in zip(table.rows[0].cells[1:],t.columns):
-                tcell.text = str(col)
-            for trow,rrow in zip(table.rows[1:],t.to_records()):
-                for tcell,rcell in zip(trow.cells,rrow):
-                    tcell.text = str(rcell)
 
     @walkerWrapper
     def sectionsPDF(self,walkTrace,case=None,element=None,doc=None):
@@ -218,6 +196,49 @@ class Section:
                     table.add_hline(1)
                     #table.add_empty_row()
 
+    @walkerWrapper
+    def sectionsWord(self,walkTrace,case=None,element=None,doc=None):
+        from docx.shared import Inches
+        from io import BytesIO
+        #p.add_run('italic.').italic = True
+                
+        if case == 'sectionmain':
+            if self.settings['clearpage']: doc.add_page_break()
+            
+            doc.add_heading(self.title, level = len(walkTrace))
+            for p in renewliner(self.p).split('\n'):
+                doc.add_paragraph(p)
+                
+        if case == 'figure':
+            bf=BytesIO()
+            figtitle,fig = element
+            width = fig.get_size_inches()[0]
+            width = Inches(width if width < 6 else 6)
+            fig.savefig(bf)
+            doc.add_picture(bf, width=width)
+            doc.add_heading('Figure {}: {}'.format(
+                fig._leopardref,
+                figtitle),level=6)
+            
+        if case == 'table':
+            caption,t = element
+            tableref = t._leopardref
+            t = pdSeriesToFrame(t) if type(t) == pd.Series else t
+            if self.settings['tablehead']:
+                t = t.head(self.settings['tablehead'])
+            if self.settings['tablecolumns']:
+                t = t[self.settings['tablecolumns']]
+
+            doc.add_heading('Table {}: {}'.format(
+                tableref,
+                caption),level=6)
+            table = doc.add_table(t.shape[0]+1,t.shape[1]+1)
+            for tcell,col in zip(table.rows[0].cells[1:],t.columns):
+                tcell.text = str(col)
+            for trow,rrow in zip(table.rows[1:],t.to_records()):
+                for tcell,rcell in zip(trow.cells,rrow):
+                    tcell.text = str(rcell)
+
     @staticmethod
     def sectionFromFunction(function,*args,**kwargs):
         """
@@ -258,6 +279,10 @@ class Report(Section):
                                                                '_'+outname if outname else '')
         self.author = author
         self.addTime = addTime
+
+        #Fig and table ref management hidden variables
+        self._fignr = count(1)
+        self._tabnr = count(1)
     
     def list(self):
         """
@@ -324,9 +349,10 @@ class Report(Section):
 
     def outputWord(self):
         import docx
-        #from docx.shared import Inches
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
         
         doc = docx.Document()
+        doc.styles['Normal'].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         
         doc.add_heading(self.title, level=0)
         if self.addTime:
@@ -336,19 +362,22 @@ class Report(Section):
          # Append introduction
         if self.p:
             doc.add_heading('Introduction',level=1)
-            doc.add_paragraph(renewliner(self.p))
+            for p in renewliner(self.p).split('\n'):
+                doc.add_paragraph(p)
 
         # Sections
         c = count(1)
-        self._fignr = count(1)
-        self._tabnr = count(1)
+        #Prepare fig and table numbers
+        self.listFigures(tuple())
+        self.listTables(tuple())
         for section in self.sections:
             section.sectionsWord((next(c),),doc=doc)
 
         # Append conclusion
         if self.conclusion:
             doc.add_heading('Conclusion', level=1)
-            doc.add_paragraph(renewliner(self.conclusion))
+            for p in renewliner(self.conclusion).split('\n'):
+                doc.add_paragraph(p)
 
         # Generate Word document
         doc.save(self.outfile+'.docx')
