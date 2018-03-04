@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 
 from unittest.mock import Mock,MagicMock,patch,call
 from unittest import TestCase

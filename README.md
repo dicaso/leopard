@@ -2,6 +2,9 @@
 [![python-3.6](https://img.shields.io/badge/python-3.6-blue.svg)]()
 
 # leopard
+
+<img title="leopard logo" src="leopard_logo.svg" width="200">
+
 Fast lab reporting python package
 
 ## Installation

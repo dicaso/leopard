@@ -10,7 +10,10 @@ from itertools import count
 from collections import OrderedDict
 from unittest.mock import Mock
 
+# Settings
 reportsDir = expanduser('~/Reports/')
+csvsep = ';'
+csvdec = ','
 
 class Section:
     """
@@ -137,7 +140,7 @@ class Section:
         for ttitle,t in self.tabs.items():
             with zipcontainer.open(zipdir+'table{}_{}.csv'.format(next(c),ttitle.replace(' ','_')),mode='w') as zipf:
                 b = StringIO()
-                t.to_csv(b,sep=';',decimal=',')
+                t.to_csv(b,sep=csvsep,decimal=csvdec)
                 b.seek(0)
                 zipf.write(b.read().encode())
         c = count(1)
@@ -381,7 +384,18 @@ class Report(Section):
 
         # Generate Word document
         doc.save(self.outfile+'.docx')
+
+    @staticmethod
+    def getReportTable(reportzipfile,tablefilename,inReportsDir=True):
+        import zipfile, io
         
+        if inReportsDir: reportzipfile = reportsDir+reportzipfile
+        with zipfile.ZipFile(reportzipfile) as z:
+            with z.open(tablefilename) as f:
+                ft = io.TextIOWrapper(f)
+                return pd.read_csv(ft,index_col=0,sep=csvsep,decimal=csvdec)
+                
+    
 # Utilities
 def makeFigFromFile(filename,*args,**kwargs):
     """
