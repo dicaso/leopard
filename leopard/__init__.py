@@ -2,7 +2,6 @@
 """
 Module for Lab Speleman reporting
 """
-from os.path import expanduser
 import matplotlib.pyplot as plt, re
 from matplotlib.figure import Figure
 import pandas as pd, re, inspect
@@ -11,9 +10,10 @@ from collections import OrderedDict
 from unittest.mock import Mock
 
 # Settings
-reportsDir = expanduser('~/Reports/')
-csvsep = ';'
-csvdec = ','
+from .config import config
+reportsDir = config['leopard']['reportdir']
+csvsep = config['leopard']['csvsep']
+csvdec = config['leopard']['csvdec']
 
 class Section:
     """
@@ -78,22 +78,22 @@ class Section:
         return s
 
     @staticmethod
-    def sectionWalker(section,callback,walkTrace,*args,**kwargs):
+    def sectionWalker(section,callback,*args,walkTrace=tuple(),**kwargs):
         """
         callback needs to be a function that handles different 
         Section elements appropriately
         walkTrace needs to be a tuple, indicate the route to the section, e.g. (1,2,0)
         """
-        callback(section,walkTrace,*args,case='sectionmain',**kwargs)
+        callback(section,*args,walkTrace=walkTrace,case='sectionmain',**kwargs)
         c = count(1)
         for f in section.figs.items():
-            callback(section,walkTrace,*args,case='figure',element=f,**kwargs)
+            callback(section,*args,walkTrace=walkTrace,case='figure',element=f,**kwargs)
         c = count(1)
         for t in section.tabs.items():
-            callback(section,walkTrace,*args,case='table',element=t,**kwargs)
+            callback(section,*args,walkTrace=walkTrace,case='table',element=t,**kwargs)
         c = count(1)
         for s in section.subs:
-            Section.sectionWalker(s,callback,walkTrace+(next(c),),*args,**kwargs)
+            Section.sectionWalker(s,callback,*args,walkTrace=walkTrace+(next(c),),**kwargs)
 
     def walkerWrapper(callback):
         def wrapper(*args,**kwargs):
@@ -102,11 +102,11 @@ class Section:
         return wrapper
 
     @walkerWrapper
-    def list(self,walkTrace,case=None,element=None):
+    def list(self,walkTrace=tuple(),case=None,element=None):
         if case == 'sectionmain': print(walkTrace,self.title)
 
     @walkerWrapper
-    def listFigures(self,walkTrace,case=None,element=None):
+    def listFigures(self,walkTrace=tuple(),case=None,element=None):
         if case == 'sectionmain': print(walkTrace,self.title)
         if case == 'figure':
             caption,fig = element
@@ -117,7 +117,7 @@ class Section:
                 print(walkTrace,fig._leopardref,caption)
 
     @walkerWrapper
-    def listTables(self,walkTrace,case=None,element=None):
+    def listTables(self,walkTrace=tuple(),case=None,element=None):
         if case == 'sectionmain': print(walkTrace,self.title)
         if case == 'table':
             caption,tab = element
