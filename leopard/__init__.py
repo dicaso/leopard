@@ -148,7 +148,7 @@ class Section:
             s.sectionOutZip(zipcontainer,'{}s{}_{}/'.format(zipdir,next(c),s.title.replace(' ','_')),figtype=figtype)
 
     @walkerWrapper
-    def sectionsPDF(self,walkTrace,case=None,element=None,doc=None):
+    def sectionsPDF(self,walkTrace=tuple(),case=None,element=None,doc=None):
         import pylatex as pl
         if case == 'sectionmain':
             if self.settings['clearpage']: doc.append(pl.utils.NoEscape(r'\clearpage'))
@@ -200,7 +200,7 @@ class Section:
                     #table.add_empty_row()
 
     @walkerWrapper
-    def sectionsWord(self,walkTrace,case=None,element=None,doc=None):
+    def sectionsWord(self,walkTrace=tuple(),case=None,element=None,doc=None):
         from docx.shared import Inches
         from io import BytesIO
         #p.add_run('italic.').italic = True
