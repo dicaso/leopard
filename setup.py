@@ -14,6 +14,9 @@ setup(name = 'leopard',
           'matplotlib',
           'pandas',
       ],
+      extras_require = {
+          'documentation': ['Sphinx']
+      },
       zip_safe = False,
       test_suite = 'nose.collector',
       tests_require = ['nose']

@@ -4,10 +4,14 @@ Module for Lab Speleman reporting
 """
 import matplotlib.pyplot as plt, re
 from matplotlib.figure import Figure
-import pandas as pd, re, inspect
+import pandas as pd, re, inspect, os
 from itertools import count
-from collections import OrderedDict
 from unittest.mock import Mock
+
+# Leopard utilities
+from leopard.utils import makeFigFromFile, pdSeriesToFrame, renewliner
+from leopard.utils import LeopardDict as OrderedDict
+#from collections import OrderedDict
 
 # Settings
 from .config import config
@@ -15,7 +19,7 @@ reportsDir = config['leopard']['reportdir']
 csvsep = config['leopard']['csvsep']
 csvdec = config['leopard']['csvdec']
 
-class Section:
+class Section(object):
     """
     Report sections.
     Defines methods dealing with the structure of
@@ -29,6 +33,18 @@ class Section:
     def __init__(self,title,text,
                  figures=None,tables=None,subsections=None,code=None,
                  tablehead=None,tablecolumns=None,clearpage=False):
+        """
+        Args:
+            title (str): Section title.
+            text (str): Section paragraph text.
+            figures (OrderedDict): Section figures.
+            tables (OrderedDict): Section tables.
+            subsections (list): Section subsections list.
+            code (str): code that generated section data/figures.
+            tablehead (int): Number of lines to print of tables in space restricted output formats.
+            tablecolumns (list): Column names of tables included in space restricted output formats.
+            clearpage (bool): Start a new page in certain output formats.
+        """
         self.title = title.strip()
         self.p = text.strip()
         self.figs = OrderedDict(figures) if figures else OrderedDict()
@@ -59,7 +75,7 @@ class Section:
                 return self._subs[key]
 
     def append(self,*args,toSection=None,**kwargs):
-        """
+        """Append a new section
         If toSection is None, section is appended to the main section/subs list.
         Else if toSection is int or (int,int,...), it gets added to the subs (subsection)
         list of the specified section.
@@ -96,6 +112,12 @@ class Section:
             Section.sectionWalker(s,callback,*args,walkTrace=walkTrace+(next(c),),**kwargs)
 
     def walkerWrapper(callback):
+        """
+        Wraps a callback function in a wrapper that will be applied to all [sub]sections.
+
+        Returns:
+            function
+        """
         def wrapper(*args,**kwargs):
             #args[0] => has to be the current walked section
             return Section.sectionWalker(args[0],callback,*args[1:],**kwargs)
@@ -103,10 +125,14 @@ class Section:
 
     @walkerWrapper
     def list(self,walkTrace=tuple(),case=None,element=None):
+        """List section titles.
+        """
         if case == 'sectionmain': print(walkTrace,self.title)
 
     @walkerWrapper
     def listFigures(self,walkTrace=tuple(),case=None,element=None):
+        """List section figures.
+        """
         if case == 'sectionmain': print(walkTrace,self.title)
         if case == 'figure':
             caption,fig = element
@@ -118,6 +144,8 @@ class Section:
 
     @walkerWrapper
     def listTables(self,walkTrace=tuple(),case=None,element=None):
+        """List section tables.
+        """
         if case == 'sectionmain': print(walkTrace,self.title)
         if case == 'table':
             caption,tab = element
@@ -128,6 +156,8 @@ class Section:
                 print(walkTrace,tab._leopardref,caption)
 
     def sectionOutZip(self,zipcontainer,zipdir='',figtype='png'):
+        """Prepares section for zip output
+        """
         from io import StringIO
         with zipcontainer.open(zipdir+'section.txt',mode='w') as zipf:
             text = self.p if not self.settings['doubleslashnewline'] else self.p.replace('//','\n')
@@ -149,6 +179,8 @@ class Section:
 
     @walkerWrapper
     def sectionsPDF(self,walkTrace=tuple(),case=None,element=None,doc=None):
+        """Prepares section for PDF output.
+        """
         import pylatex as pl
         if case == 'sectionmain':
             if self.settings['clearpage']: doc.append(pl.utils.NoEscape(r'\clearpage'))
@@ -201,6 +233,8 @@ class Section:
 
     @walkerWrapper
     def sectionsWord(self,walkTrace=tuple(),case=None,element=None,doc=None):
+        """Prepares section for word output.
+        """
         from docx.shared import Inches
         from io import BytesIO
         #p.add_run('italic.').italic = True
@@ -251,6 +285,12 @@ class Section:
         The function should return an ordered dict of figures and tables, that are then
         attached to the section.
 
+        Args:
+            function (function): The function that generates the section content.
+
+        Returns:
+            Section
+
         >>> # Section title of example function
         ... def exampleFunction(a,b=None):
         ...     'Mock figures and tables included'
@@ -273,13 +313,31 @@ class Report(Section):
     outfile should not include a final extension, as
     that is determined by the different output methods.
     """
-    def __init__(self,title,intro='',conclusion='',outname='',outfile=None,author=None,addTime=True):
+    def __init__(self,title,intro='',conclusion='',outname='',outfile=None,author=None,addTime=True,makeDir=False):
+        """Create a report
+
+        Note:
+            If you are using a nested outname and the reports directory does not 
+            yet exist, makeDir can be set to True.
+
+        Args:
+            title (str): Report title.
+            intro (str): Introduction.
+            conclustion (str): Report concluding statements.
+            outname (str): The base file name for the report, can include 
+                directories relative to reportDir.
+            outfile (str, optional): A full filename (without extension) can 
+                also be provided to save report outside of reportDir.
+        """
         import time
         super().__init__(title=title,text=intro)
-        self.sections = self.subs #Report sections can be accessed by both sections and subs attribute
+        self.sections = self.subs # Report sections can be accessed by both sections and subs attribute
         self.conclusion = conclusion.strip()
-        self.outfile = outfile if outfile else '{}{}{}'.format(reportsDir,time.strftime('%Y_%m_%d'),
-                                                               '_'+outname if outname else '')
+        self.outdir = os.path.dirname(outfile) if outfile else os.path.join(reportsDir,outname)
+        self.outfile = outfile if outfile else os.path.join(
+            self.outdir,
+            '{}{}'.format(time.strftime('%Y_%m_%d'), '_'+outname if outname else '')
+        )
         self.author = author
         self.addTime = addTime
 
@@ -298,6 +356,9 @@ class Report(Section):
         """
         Outputs the report in a zip container.
         Figs and tabs as pngs and excells.
+
+        Args:
+            figtype (str): Figure type of images in the zip folder.
         """
         from zipfile import ZipFile
         with ZipFile(self.outfile+'.zip', 'w') as zipcontainer:
@@ -340,7 +401,7 @@ class Report(Section):
         # Sections
         c = count(1)
         for section in self.sections:
-            section.sectionsPDF((next(c),),doc=doc)
+            section.sectionsPDF(walkTrace=(next(c),),doc=doc)
 
         # Append conclusion
         if self.conclusion:
@@ -351,6 +412,8 @@ class Report(Section):
         doc.generate_pdf(self.outfile,**kwargs)
 
     def outputWord(self):
+        """Output report to word docx
+        """
         import docx
         from docx.enum.text import WD_ALIGN_PARAGRAPH
         
@@ -387,39 +450,21 @@ class Report(Section):
 
     @staticmethod
     def getReportTable(reportzipfile,tablefilename,inReportsDir=True):
+        """Get a pandas table from a previous report
+
+        Args:
+            reportzipfile (str): Zip folder location.
+            tablefilename (str): Table location within the zip folder.
+            inReportsDir (bool): Search reportzipfile relative to reportsDir.
+
+        Returns:
+            pd.DataFrame
+        """
         import zipfile, io
         
-        if inReportsDir: reportzipfile = reportsDir+reportzipfile
+        if inReportsDir: reportzipfile = os.path.join(reportsDir,reportzipfile)
         with zipfile.ZipFile(reportzipfile) as z:
             with z.open(tablefilename) as f:
                 ft = io.TextIOWrapper(f)
                 return pd.read_csv(ft,index_col=0,sep=csvsep,decimal=csvdec)
-                
-    
-# Utilities
-def makeFigFromFile(filename,*args,**kwargs):
-    """
-    Renders an image in a matplotlib figure, so it can be added to reports 
-    args and kwargs are passed to plt.subplots
-    """
-    img = plt.imread(filename)
-    fig,ax = plt.subplots(*args,**kwargs)
-    ax.axis('off')
-    ax.imshow(img)
-    return fig
 
-def pdSeriesToFrame(pdseries,colname='value'):
-    "Returns a series as a pd dataframe"
-    return pd.DataFrame(pdseries,columns=[colname])
-
-def renewliner(text):
-    newline = re.compile(r'(\w)\n(\w)')
-    return newline.subn(r'\g<1> \g<2>',text)[0]
-
-class FigureDict(OrderedDict):
-    def __init__(self, *args, section=None, **kwds):
-        super().__init__(*args, **kwds)
-        self._section = section 
-        
-    def __setitem__(self, key, figure, **kwargs):
-        super().__setitem__(key,figure,**kwargs)
