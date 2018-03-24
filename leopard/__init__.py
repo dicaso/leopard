@@ -1,6 +1,8 @@
 #!/bin/env python3
-"""
-Module for Lab Speleman reporting
+"""Module for laboratory reporting.
+
+Containers data and interpretations together and then
+streamlines it to different output formats.
 """
 import matplotlib.pyplot as plt, re
 from matplotlib.figure import Figure
@@ -80,7 +82,7 @@ class Section(object):
         Else if toSection is int or (int,int,...), it gets added to the subs (subsection)
         list of the specified section.
 
-        *args and **kwargs are processed by Section class initiation
+        *args* and *kwargs* are processed by Section class initiation
         """
         if not toSection and toSection is not 0:
             s = Section(*args,**kwargs)
@@ -374,9 +376,8 @@ class Report(Section):
                                       figtype=figtype)
 
     def outputPDF(self,**kwargs):
-        """
-        Makes a pdf report with pylatex
-        **kwargs are send to doc.generate_pdf 
+        """Makes a pdf report with pylatex
+        *kwargs* are send to doc.generate_pdf 
         -> see pylatex.Document.generate_pdf for help
         """
         import pylatex as pl

@@ -25,3 +25,6 @@ Module documentation
 ====================
 .. automodule:: leopard
    :members:
+
+.. automodule:: leopard.utils
+   :members:
