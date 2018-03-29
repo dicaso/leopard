@@ -450,21 +450,44 @@ class Report(Section):
         doc.save(self.outfile+'.docx')
 
     @staticmethod
-    def getReportTable(reportzipfile,tablefilename,inReportsDir=True):
+    def getReportTable(reportzipfile,tablefilename,inReportsDir=True,verbose=False):
         """Get a pandas table from a previous report
 
         Args:
-            reportzipfile (str): Zip folder location.
-            tablefilename (str): Table location within the zip folder.
+            reportzipfile (str): Zip folder location, '.zip' extension is optional.
+            tablefilename (str or list int): Table location within the zip folder.
+                Can be provided as the filename within the zip folder, or a list of integers
+                indicating its exact position (1-indexed). If you provide an empty string or
+                list, all available table filenames in the zip folder will be printed.
             inReportsDir (bool): Search reportzipfile relative to reportsDir.
 
         Returns:
             pd.DataFrame
         """
-        import zipfile, io
-        
+        import zipfile, io, re
+
+        # zipfilename preparation
+        if not reportzipfile.endswith('.zip'): reportzipfile+='.zip'
         if inReportsDir: reportzipfile = os.path.join(reportsDir,reportzipfile)
         with zipfile.ZipFile(reportzipfile) as z:
+            # print all table filenames if tablefilename is not provided
+            if not tablefilename:
+                for f in z.filelist:
+                    if 'table' in f.filename: print(f.filename)
+                return
+            # tablefilename preparation if int list
+            if isinstance(tablefilename,list):
+                tablelocation = tablefilename
+                tablefilename = None
+                location = re.compile(r'(s|table)(\d+)_')
+                for f in z.filelist:
+                    if 'table' not in f.filename or f.filename.count('/') != (len(tablelocation)-1): continue
+                    if [int(location.match(s).groups()[1]) for s in f.filename.split('/')] == tablelocation:
+                        tablefilename = f.filename
+                        if verbose: print('Loading',tablefilename)
+                        break
+                if tablefilename is None: raise FileNotFoundError('Table location not found in zip folder.')
+            # read table
             with z.open(tablefilename) as f:
                 ft = io.TextIOWrapper(f)
                 return pd.read_csv(ft,index_col=0,sep=csvsep,decimal=csvdec)

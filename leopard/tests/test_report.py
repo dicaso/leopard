@@ -45,7 +45,7 @@ class test_report(TestCase):
              patch('pylatex.utils.NoEscape',MagicMock()) as m2,\
              patch('re.compile',MagicMock()) as m3:
             self.report.outputPDF()
-            m1().generate_pdf.assert_called_once_with(eu('~/Reports/2017_01_01_mockname'))
+            m1().generate_pdf.assert_called_once_with(eu('~/Reports/mockname/2017_01_01_mockname'))
             m2.assert_any_call('\\maketitle')
 
 class test_section(TestCase):
