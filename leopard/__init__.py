@@ -160,21 +160,28 @@ class Section(object):
     def sectionOutZip(self,zipcontainer,zipdir='',figtype='png'):
         """Prepares section for zip output
         """
-        from io import StringIO
-        with zipcontainer.open(zipdir+'section.txt',mode='w') as zipf:
-            text = self.p if not self.settings['doubleslashnewline'] else self.p.replace('//','\n')
-            zipf.write('# {}\n{}'.format(self.title,text).encode())
+        from io import StringIO, BytesIO
+        text = self.p if not self.settings['doubleslashnewline'] else self.p.replace('//','\n')
+        zipcontainer.writestr(
+            zipdir+'section.txt',
+            '# {}\n{}'.format(self.title,text).encode()
+        )
         c = count(1)
         for ftitle,f in self.figs.items():
-            with zipcontainer.open(zipdir+'fig{}_{}.{}'.format(next(c),ftitle.replace(' ','_'),figtype),mode='w') as zipf:
-                f.savefig(zipf,format=figtype,transparent=True)
+            figfile = zipdir+'fig{}_{}.{}'.format(next(c),ftitle.replace(' ','_'),figtype)
+            b = BytesIO()
+            f.savefig(b,format=figtype,transparent=True)
+            b.seek(0)
+            zipcontainer.writestr(figfile,b.getvalue())
         c = count(1)
         for ttitle,t in self.tabs.items():
-            with zipcontainer.open(zipdir+'table{}_{}.csv'.format(next(c),ttitle.replace(' ','_')),mode='w') as zipf:
-                b = StringIO()
-                t.to_csv(b,sep=csvsep,decimal=csvdec)
-                b.seek(0)
-                zipf.write(b.read().encode())
+            b = StringIO()
+            t.to_csv(b,sep=csvsep,decimal=csvdec)
+            b.seek(0)
+            zipcontainer.writestr(
+                zipdir+'table{}_{}.csv'.format(next(c),ttitle.replace(' ','_')),
+                b.read().encode()
+            )
         c = count(1)
         for s in self.subs:
             s.sectionOutZip(zipcontainer,'{}s{}_{}/'.format(zipdir,next(c),s.title.replace(' ','_')),figtype=figtype)
@@ -364,12 +371,14 @@ class Report(Section):
         """
         from zipfile import ZipFile
         with ZipFile(self.outfile+'.zip', 'w') as zipcontainer:
-            with zipcontainer.open('summary.txt',mode='w') as zipf:
-                zipf.write('# {}\n\n{}\n{}'.format(
+            zipcontainer.writestr(
+                'summary.txt',
+                '# {}\n\n{}\n{}'.format(
                     self.title,
                     self.p,
                     ('\n## Conclusion\n' if self.conclusion else '')+self.conclusion
-                ).encode())
+                ).encode()
+            )
             c = count(1)
             for section in self.sections:
                 section.sectionOutZip(zipcontainer,'s{}_{}/'.format(next(c),section.title.replace(' ','_')),

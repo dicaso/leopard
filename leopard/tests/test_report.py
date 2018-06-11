@@ -62,7 +62,7 @@ class test_section(TestCase):
     def test_sectionOutZip(self):
         zipcontainer = MagicMock()
         self.section.sectionOutZip(zipcontainer=zipcontainer,zipdir='mockdir/',figtype='mockfig')
-        zipcontainer.open.assert_any_call('mockdir/section.txt', mode='w')
-        zipcontainer.open.assert_any_call('mockdir/fig1_fig1title.mockfig', mode='w')
-        zipcontainer.open.assert_any_call('mockdir/table1_tab1title.csv', mode='w')
+        #zipcontainer.writestr.assert_any_call('mockdir/section.txt',...) # not checking as expects inconsistent mock str
+        zipcontainer.writestr.assert_any_call('mockdir/fig1_fig1title.mockfig', b'')
+        zipcontainer.writestr.assert_any_call('mockdir/table1_tab1title.csv', b'')
         
