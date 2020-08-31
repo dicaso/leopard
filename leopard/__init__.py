@@ -390,8 +390,9 @@ class Report(Section):
         -> see pylatex.Document.generate_pdf for help
         """
         import pylatex as pl
-        geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
-        doc = pl.Document(geometry_options=geometry_options)
+        # geometry_options giving an error on Mac
+        #geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
+        doc = pl.Document()#geometry_options=geometry_options)
         #Following option avoids float error when to many unplaced figs or tabs
         # (to force placing floats also \clearpage can be used after a section for example)
         doc.append(pl.utils.NoEscape(r'\extrafloats{100}'))
@@ -544,9 +545,9 @@ class Presentation(Report):
         -> see pylatex.Document.generate_pdf for help
         """
         import pylatex as pl
-        geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
+        #geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
         doc = pl.Document(
-            documentclass='beamer', geometry_options=geometry_options
+            documentclass='beamer'#, geometry_options=geometry_options
         )
         #Following option avoids float error when to many unplaced figs or tabs
         # (to force placing floats also \clearpage can be used after a section for example)
