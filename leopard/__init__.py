@@ -32,7 +32,7 @@ class Section(object):
 
     For adding subsections, a method is provided.
     """
-    def __init__(self,title,text,
+    def __init__(self,title,text='',
                  figures=None,tables=None,subsections=None,code=None,
                  tablehead=None,tablecolumns=None,clearpage=False):
         """
@@ -197,8 +197,8 @@ class Section(object):
                             pl.Subsection(self.title) if len(walkTrace) == 2 else
                             pl.Subsubsection(self.title)):
                 text = (self.p.replace('\n',' ').replace('//','\n')
-                        if self.settings['doubleslashnewline'] else
-                        renewliner(self.p))
+                     if self.settings['doubleslashnewline'] else
+                     renewliner(self.p))
                 if r'\ref' not in text: doc.append(text)
                 else:
                     figrefs = re.compile(r'\\ref\{figref\d+\}')
@@ -501,3 +501,102 @@ class Report(Section):
                 ft = io.TextIOWrapper(f)
                 return pd.read_csv(ft,index_col=0,sep=csvsep,decimal=csvdec)
 
+class Presentation(Report):
+    """
+    Outputs a presentation pdf.
+    Currently inherits from Report, so any kind of Sections
+    can be appended to it, although only sections should be
+    appended that have at most 1 figure or 1 table.
+    """
+    @staticmethod
+    def make_slide(title, subtitle=''):
+        import pylatex as pl
+        from pylatex.base_classes import Environment
+        class Frame(Environment):
+            def __init__(self, title, subtitle=''):
+                super().__init__()
+                self.append(
+                    pl.NoEscape(r'\frametitle{')+
+                    pl.escape_latex(title)+
+                    pl.NoEscape('}')
+                )
+                if subtitle:
+                    self.append(
+                        pl.NoEscape(r'\framesubtitle{')+
+                        pl.escape_latex(title)+
+                        pl.NoEscape('}')
+                    )
+
+            def add_enumeration(self, enumeration, ordered=False):
+                e = Environment()
+                e._latex_name = 'enumerate' if ordered else 'itemize'
+                for item in enumeration:
+                    e.append(
+                        pl.NoEscape(r'\item ') + pl.escape_latex(item)
+                    )
+                self.append(e)
+                
+        return Frame(title, subtitle)
+    
+    def outputPDF(self,**kwargs):
+        """Makes a pdf presentation with pylatex
+        *kwargs* are send to doc.generate_pdf 
+        -> see pylatex.Document.generate_pdf for help
+        """
+        import pylatex as pl
+        geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
+        doc = pl.Document(
+            documentclass='beamer', geometry_options=geometry_options
+        )
+        #Following option avoids float error when to many unplaced figs or tabs
+        # (to force placing floats also \clearpage can be used after a section for example)
+        doc.append(pl.utils.NoEscape(r'\extrafloats{100}'))
+        doc.append(pl.utils.NoEscape(r'\title{'+self.title+'}'))
+        if self.addTime:
+            from time import localtime, strftime
+            doc.append(pl.utils.NoEscape(r'\date{'+strftime("%Y-%m-%d %H:%M:%S", localtime())+r'}'))
+        else: doc.append(pl.utils.NoEscape(r'\date{\today}'))
+        if self.author: doc.append(pl.utils.NoEscape(r'\author{'+self.author+'}'))
+        #doc.append(pl.utils.NoEscape(r'\maketitle'))
+        doc.append(pl.utils.NoEscape(r'\begin{frame} \titlepage \end{frame}'))
+
+        # Sections
+        c = count(1)
+        for section in self.sections:
+            #section.sectionsPDF(walkTrace=(next(c),),doc=doc)
+            frame = self.make_slide(section.title)
+
+            if section.figs and section.tabs:
+                raise Exception('fig and table on same frame not supported currently')
+            
+            elif section.figs:
+                width = pl.NoEscape(r'1\textwidth')
+                if len(section.figs) > 1: raise Exception('More than 1 fig/frame not supported currently')
+                figtitle,fig = list(section.figs.items())[0]
+                plot = pl.Figure()
+                #plot._latex_name = 'figure'
+                plt.figure(fig.number)
+                plot.add_plot(width=width)
+                plot.add_caption(figtitle)
+                plot.append(pl.utils.NoEscape(r'\label{figref'+str(fig.number)+r'}'))
+                frame.append(plot)
+            
+            elif section.tabs:
+                if len(section.tabs) > 1: raise Exception('More than 1 table/frame not supported currently')
+                caption,t = list(section.tabs.items())[0]
+                t = pdSeriesToFrame(t) if type(t) == pd.Series else t
+                tablenv = pl.Table()
+                tablenv.add_caption(caption)
+                table = pl.Tabular('r|'+'l'*len(t.columns))
+                table.add_hline()
+                table.add_row(('',)+tuple(t.columns))
+                for row in t.to_records():
+                    table.add_row(row)
+                table.add_hline(1)
+                tablenv.append(table)
+                frame.append(tablenv)
+
+            doc.append(frame)
+
+        # Generate pdf
+        doc.generate_pdf(self.outfile,**kwargs)
