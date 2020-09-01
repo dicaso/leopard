@@ -392,7 +392,12 @@ class Report(Section):
         import pylatex as pl
         # geometry_options giving an error on Mac
         #geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
-        doc = pl.Document()#geometry_options=geometry_options)
+        doc = pl.Document()
+        #if geometry_options:
+        #    doc.preamble.append(pl.NoEscape(r'\usepackage{geometry}'))
+        #    doc.preamble.append(pl.NoEscape(
+        #        r'\geometry{'+'}{'.join([k if v is True else k+'='+v for k,v in geometry_options.items()])+'}'))
+        
         #Following option avoids float error when to many unplaced figs or tabs
         # (to force placing floats also \clearpage can be used after a section for example)
         doc.append(pl.utils.NoEscape(r'\extrafloats{100}'))
