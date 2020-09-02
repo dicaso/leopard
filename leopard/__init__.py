@@ -42,7 +42,7 @@ class Section(object):
             figures (OrderedDict): Section figures.
             tables (OrderedDict): Section tables.
             subsections (list): Section subsections list.
-            code (str): code that generated section data/figures.
+            code (str): code that generated section data/figures, or anything to display verbatim.
             tablehead (int): Number of lines to print of tables in space restricted output formats.
             tablecolumns (list): Column names of tables included in space restricted output formats.
             clearpage (bool): Start a new page in certain output formats.
@@ -514,46 +514,20 @@ class Presentation(Report):
     can be appended to it, although only sections should be
     appended that have at most 1 figure or 1 table.
     """
-    @staticmethod
-    def make_slide(title, subtitle=''):
-        import pylatex as pl
-        from pylatex.base_classes import Environment
-        class Frame(Environment):
-            def __init__(self, title, subtitle=''):
-                super().__init__()
-                self.append(
-                    pl.NoEscape(r'\frametitle{')+
-                    pl.escape_latex(title)+
-                    pl.NoEscape('}')
-                )
-                if subtitle:
-                    self.append(
-                        pl.NoEscape(r'\framesubtitle{')+
-                        pl.escape_latex(title)+
-                        pl.NoEscape('}')
-                    )
-
-            def add_enumeration(self, enumeration, ordered=False):
-                e = Environment()
-                e._latex_name = 'enumerate' if ordered else 'itemize'
-                for item in enumeration:
-                    e.append(
-                        pl.NoEscape(r'\item ') + pl.escape_latex(item)
-                    )
-                self.append(e)
-                
-        return Frame(title, subtitle)
-    
     def outputPDF(self,**kwargs):
         """Makes a pdf presentation with pylatex
         *kwargs* are send to doc.generate_pdf 
         -> see pylatex.Document.generate_pdf for help
         """
         import pylatex as pl
+        from .extensions.latex import Frame
+        
         #geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
         doc = pl.Document(
             documentclass='beamer'#, geometry_options=geometry_options
         )
+        doc.content_separator = '\n' # can give issues for combi verbatim frame
+        
         #Following option avoids float error when to many unplaced figs or tabs
         # (to force placing floats also \clearpage can be used after a section for example)
         doc.append(pl.utils.NoEscape(r'\extrafloats{100}'))
@@ -570,7 +544,7 @@ class Presentation(Report):
         c = count(1)
         for section in self.sections:
             #section.sectionsPDF(walkTrace=(next(c),),doc=doc)
-            frame = self.make_slide(section.title)
+            frame = Frame(section.title)
 
             if section.figs and section.tabs:
                 raise Exception('fig and table on same frame not supported currently')
@@ -602,6 +576,16 @@ class Presentation(Report):
                 tablenv.append(table)
                 frame.append(tablenv)
 
+            if section.code:
+                if isinstance(section.code, str):
+                    frame.add_code(section.code)
+                else:
+                    import inspect
+                    frame.add_code(
+                        inspect.getsource(section.code),
+                        language='python'
+                    )
+            
             doc.append(frame)
 
         # Generate pdf

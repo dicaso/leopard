@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name = 'leopard',
       version = '0.2.1',
@@ -7,7 +7,7 @@ setup(name = 'leopard',
       author = 'Christophe Van Neste',
       author_email = 'christophe.vanneste@ugent.be',
       license = 'MIT',
-      packages = ['leopard'],
+      packages=find_packages(),
       install_requires = [
           'pylatex',
           'python-docx',
