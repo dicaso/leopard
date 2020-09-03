@@ -12,6 +12,10 @@ class Verbatim(Environment):
     def __init__(self, code, language=None):
         super().__init__()
         self.content_separator = '\n'
+        if not isinstance(code, str):
+            import inspect
+            code = inspect.getsource(code)
+            language = 'python'
         if language:
             self._latex_name = 'lstlisting'
             self.packages.append(Package('listings'))

@@ -55,3 +55,21 @@ class FigureDict(LeopardDict):
         
     def __setitem__(self, key, figure, **kwargs):
         super().__setitem__(key,figure,**kwargs)
+
+def print2report(report):
+    """Redirecting print to report
+    Original print function saved as builtins._print
+    """
+    import builtins
+    if not '_print' in vars(builtins):
+        builtins._print = builtins.print
+    builtins._print('Redirecting print to print method', report)
+    builtins.print = report.print
+
+def open_file(filename):
+    import os, sys, subprocess
+    if sys.platform == "win32":
+        os.startfile(filename)
+    else:
+        opener ="open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.call([opener, filename])

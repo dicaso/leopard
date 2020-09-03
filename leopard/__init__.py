@@ -191,6 +191,7 @@ class Section(object):
         """Prepares section for PDF output.
         """
         import pylatex as pl
+        from .extensions.latex import Verbatim
         if case == 'sectionmain':
             if self.settings['clearpage']: doc.append(pl.utils.NoEscape(r'\clearpage'))
             with doc.create(pl.Section(self.title) if len(walkTrace) == 1 else
@@ -209,6 +210,7 @@ class Section(object):
                         doc.append(pl.utils.NoEscape(text[fr.start():fr.end()]))
                         lastpos = fr.end()
                     doc.append(text[lastpos:])
+                if self.code: doc.append(Verbatim(self.code))
                 
         if case == 'figure':
             width = r'1\textwidth'
@@ -322,7 +324,9 @@ class Report(Section):
     outfile should not include a final extension, as
     that is determined by the different output methods.
     """
-    def __init__(self,title,intro='',conclusion='',outname='',outfile=None,author=None,addTime=True,makeDir=False):
+    def __init__(
+            self, title, intro='', conclusion='', outname='', outfile=None,
+            author=None, addTime=True, makeDir=False, capture_print=False):
         """Create a report
 
         Note:
@@ -337,6 +341,7 @@ class Report(Section):
                 directories relative to reportDir.
             outfile (str, optional): A full filename (without extension) can 
                 also be provided to save report outside of reportDir.
+            capture_print (bool): If True overload print function to report print method
         """
         import time
         super().__init__(title=title,text=intro)
@@ -353,6 +358,30 @@ class Report(Section):
         #Fig and table ref management hidden variables
         self._fignr = count(1)
         self._tabnr = count(1)
+
+        if capture_print:
+            from .utils import print2report
+            print2report(self)
+
+    def print(self, *args, **kwargs):
+        """Method that can be used instead of print, to
+        attach the stdout to the report as well in the
+        lastSection's code attribute.
+
+        This does turn the code attribute to a str, so
+        the same section cannot contain a code object.
+        """
+        from io import StringIO
+        import builtins
+        print = builtins._print if '_print' in vars(builtins) else builtins.print
+        if not 'file' in kwargs:
+            out = StringIO()
+            print(*args, file=out, **kwargs)
+            print(out.getvalue(), end='')
+            try: self.lastSection.code += out.getvalue()
+            except TypeError: self.lastSection.code = out.getvalue()
+            except AttributeError: print(self, 'has no sections yet')
+        else: print(*args, **kwargs)
     
     def list(self):
         """
@@ -384,7 +413,7 @@ class Report(Section):
                 section.sectionOutZip(zipcontainer,'s{}_{}/'.format(next(c),section.title.replace(' ','_')),
                                       figtype=figtype)
 
-    def outputPDF(self,**kwargs):
+    def outputPDF(self,show=False,**kwargs):
         """Makes a pdf report with pylatex
         *kwargs* are send to doc.generate_pdf 
         -> see pylatex.Document.generate_pdf for help
@@ -426,6 +455,11 @@ class Report(Section):
 
         # Generate pdf
         doc.generate_pdf(self.outfile,**kwargs)
+
+        # Open file
+        if show:
+            from .utils import open_file
+            open_file(self.outfile+'.pdf')
 
     def outputWord(self):
         """Output report to word docx
