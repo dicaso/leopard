@@ -548,7 +548,7 @@ class Presentation(Report):
     can be appended to it, although only sections should be
     appended that have at most 1 figure or 1 table.
     """
-    def outputPDF(self,**kwargs):
+    def outputPDF(self, show=False, **kwargs):
         """Makes a pdf presentation with pylatex
         *kwargs* are send to doc.generate_pdf 
         -> see pylatex.Document.generate_pdf for help
@@ -578,26 +578,25 @@ class Presentation(Report):
         c = count(1)
         for section in self.sections:
             #section.sectionsPDF(walkTrace=(next(c),),doc=doc)
-            frame = Frame(section.title)
-
-            if section.figs and section.tabs:
-                raise Exception('fig and table on same frame not supported currently')
+            ncols = len(section.figs)+len(section.tabs)
+            frame = Frame(section.title, ncols=ncols if ncols>1 else 0)
             
-            elif section.figs:
-                width = pl.NoEscape(r'1\textwidth')
-                if len(section.figs) > 1: raise Exception('More than 1 fig/frame not supported currently')
-                figtitle,fig = list(section.figs.items())[0]
+            for i,fig in enumerate(section.figs):
+                coli = i+len(section.tabs) #TODO add option to use first column(s) for figures
+                width = pl.NoEscape(r'1\textwidth') if ncols<=1 else frame.columns.cols[coli].width
+                figtitle,fig = list(section.figs.items())[i]
                 plot = pl.Figure()
-                #plot._latex_name = 'figure'
                 plt.figure(fig.number)
                 plot.add_plot(width=width)
                 plot.add_caption(figtitle)
                 plot.append(pl.utils.NoEscape(r'\label{figref'+str(fig.number)+r'}'))
-                frame.append(plot)
+                if ncols <=1:
+                    frame.append(plot)
+                else: frame.columns.cols[coli].append(plot)
             
-            elif section.tabs:
-                if len(section.tabs) > 1: raise Exception('More than 1 table/frame not supported currently')
-                caption,t = list(section.tabs.items())[0]
+            for i,tab in enumerate(section.tabs):
+                #i += len(section.figs) #TODO add option to use first column(s) for tables
+                caption,t = list(section.tabs.items())[i]
                 t = pdSeriesToFrame(t) if type(t) == pd.Series else t
                 tablenv = pl.Table()
                 tablenv.add_caption(caption)
@@ -608,7 +607,9 @@ class Presentation(Report):
                     table.add_row(row)
                 table.add_hline(1)
                 tablenv.append(table)
-                frame.append(tablenv)
+                if ncols <=1:
+                    frame.append(tablenv)
+                else: frame.columns.cols[i].append(tablenv)
 
             if section.code:
                 if isinstance(section.code, str):
@@ -624,3 +625,8 @@ class Presentation(Report):
 
         # Generate pdf
         doc.generate_pdf(self.outfile,**kwargs)
+
+        # Open file
+        if show:
+            from .utils import open_file
+            open_file(self.outfile+'.pdf')
