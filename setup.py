@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name = 'leopard',
-      version = '0.2.4',
+      version = '0.2.5-dev',
       description = 'Fast lab reporting python package',
       url = 'https://github.com/beukueb/leopard',
       author = 'Christophe Van Neste',

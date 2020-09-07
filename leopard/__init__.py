@@ -550,7 +550,7 @@ class Presentation(Report):
     can be appended to it, although only sections should be
     appended that have at most 1 figure or 1 table.
     """
-    def outputPDF(self, theme=None, colortheme=None, show=False, **kwargs):
+    def outputPDF(self, theme=None, colortheme=None, colorel=None, show=False, **kwargs):
         """Makes a pdf presentation with pylatex
         *kwargs* are send to doc.generate_pdf 
         -> see pylatex.Document.generate_pdf for help
@@ -569,10 +569,19 @@ class Presentation(Report):
             doc.preamble.append(
                 pl.NoEscape(r'\usecolortheme{'+pl.NoEscape(colortheme)+pl.NoEscape('}'))
             )
-        # TODO further customizations
-        #\setbeamercolor{itemize item}{fg=darkred!80!black}
         doc.preamble.append(pl.NoEscape(r'\setbeamertemplate{caption}{\insertcaption}'))
-        doc.preamble.append(pl.NoEscape(r'\setbeamercolor{caption}{fg=structure!80!black}'))
+        if colorel and isinstance(colorel, str):
+            colorel = colorel if '!' in colorel else f'{colorel}!80!black'
+            for element in ('caption', 'itemize item'):
+                doc.preamble.append(
+                    pl.NoEscape(r'\setbeamercolor{')+
+                    pl.NoEscape(element)+
+                    pl.NoEscape(r'}{fg=')+
+                    pl.NoEscape(colorel)+
+                    pl.NoEscape(r'}')
+                )
+        elif colorel and isinstance(colorel, list):
+            doc.preamble += colorel
         
         doc.append(pl.NoEscape(r'\title{'+self.title+'}'))
         if self.addTime:

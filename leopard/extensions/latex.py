@@ -75,3 +75,34 @@ class Frame(Environment):
     def add_columns(self, ncols):
         self.columns = Columns(ncols = ncols)
         self.append(self.columns)
+
+def get_beamer_color_preamble(primary, secondary, primtext='white', sectext='white'):
+    """Generate list of commands for preamble.
+
+    Args:
+        primary (float, float, float): RGB values for primary color
+        secondary (float, float, float): RGB values for secondary color
+    """
+    preamble_commands = [
+        Command('definecolor', arguments=('primcol','rgb'),
+                extra_arguments=', '.join([str(c) for c in primary])),
+        Command('definecolor', arguments=('secocol','rgb'),
+                extra_arguments=', '.join([str(c) for c in secondary]))
+    ]
+
+    for element in ('palette primary', 'palette secondary',
+                    'palette tertiary', 'palette quaternary'):
+        preamble_commands.append(
+            Command('setbeamercolor', arguments=(element,f'bg=primcol,fg={primtext}'))
+        )
+
+    for element in ('structure', 'section in toc', 'caption', 'itemize item'):
+        preamble_commands.append(
+            Command('setbeamercolor', arguments=(element,f'fg=primcol'))
+        )
+                    
+    preamble_commands.append(
+        Command('setbeamercolor', arguments=('subsection in head/foot',f'bg=secocol,fg={sectext}'))
+    )
+
+    return preamble_commands
