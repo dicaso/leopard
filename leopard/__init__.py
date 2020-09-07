@@ -32,13 +32,13 @@ class Section(object):
 
     For adding subsections, a method is provided.
     """
-    def __init__(self,title,text='',
-                 figures=None,tables=None,subsections=None,code=None,
-                 tablehead=None,tablecolumns=None,clearpage=False):
+    def __init__(self, title, text='', figures=None, tables=None,
+                 subsections=None, code=None, tablehead=None,
+                 tablecolumns=None, clearpage=False):
         """
         Args:
-            title (str): Section title.
-            text (str): Section paragraph text.
+            title (str | (str,str)): Section title, or (title, subtitle).
+            text (str): Section paragraph text, can also be a list of strings.
             figures (OrderedDict): Section figures.
             tables (OrderedDict): Section tables.
             subsections (list): Section subsections list.
@@ -47,8 +47,10 @@ class Section(object):
             tablecolumns (list): Column names of tables included in space restricted output formats.
             clearpage (bool): Start a new page in certain output formats.
         """
-        self.title = title.strip()
-        self.p = text.strip()
+        if isinstance(title, str):
+            self.title, self.subtitle = title.strip(), ''
+        else: self.title, self.subtitle = title[0].strip(), title[1].strip()
+        self.p = text.strip() if isinstance(text, str) else text
         self.figs = OrderedDict(figures) if figures else OrderedDict()
         self.tabs = OrderedDict(tables) if tables else OrderedDict()
         self.subs = subsections if subsections else []
@@ -548,10 +550,11 @@ class Presentation(Report):
     can be appended to it, although only sections should be
     appended that have at most 1 figure or 1 table.
     """
-    def outputPDF(self, show=False, **kwargs):
+    def outputPDF(self, theme=None, colortheme=None, show=False, **kwargs):
         """Makes a pdf presentation with pylatex
         *kwargs* are send to doc.generate_pdf 
         -> see pylatex.Document.generate_pdf for help
+        -> see https://deic-web.uab.cat/~iblanes/beamer_gallery/index.html for (color)theme options
         """
         import pylatex as pl
         from .extensions.latex import Frame
@@ -561,11 +564,17 @@ class Presentation(Report):
             documentclass='beamer'#, geometry_options=geometry_options
         )
         doc.content_separator = '\n' # can give issues for combi verbatim frame
+        if theme: doc.preamble.append(pl.NoEscape(r'\usetheme{'+pl.NoEscape(theme)+pl.NoEscape('}')))
+        if colortheme:
+            doc.preamble.append(
+                pl.NoEscape(r'\usecolortheme{'+pl.NoEscape(colortheme)+pl.NoEscape('}'))
+            )
+        # TODO further customizations
+        #\setbeamercolor{itemize item}{fg=darkred!80!black}
+        doc.preamble.append(pl.NoEscape(r'\setbeamertemplate{caption}{\insertcaption}'))
+        doc.preamble.append(pl.NoEscape(r'\setbeamercolor{caption}{fg=structure!80!black}'))
         
-        #Following option avoids float error when to many unplaced figs or tabs
-        # (to force placing floats also \clearpage can be used after a section for example)
-        doc.append(pl.utils.NoEscape(r'\extrafloats{100}'))
-        doc.append(pl.utils.NoEscape(r'\title{'+self.title+'}'))
+        doc.append(pl.NoEscape(r'\title{'+self.title+'}'))
         if self.addTime:
             from time import localtime, strftime
             doc.append(pl.utils.NoEscape(r'\date{'+strftime("%Y-%m-%d %H:%M:%S", localtime())+r'}'))
@@ -579,11 +588,11 @@ class Presentation(Report):
         for section in self.sections:
             #section.sectionsPDF(walkTrace=(next(c),),doc=doc)
             ncols = len(section.figs)+len(section.tabs)
-            frame = Frame(section.title, ncols=ncols if ncols>1 else 0)
+            frame = Frame(section.title, section.subtitle, ncols=ncols if ncols>1 else 0)
             
             for i,fig in enumerate(section.figs):
                 coli = i+len(section.tabs) #TODO add option to use first column(s) for figures
-                width = pl.NoEscape(r'1\textwidth') if ncols<=1 else frame.columns.cols[coli].width
+                width = pl.NoEscape(r'1\textwidth')
                 figtitle,fig = list(section.figs.items())[i]
                 plot = pl.Figure()
                 plt.figure(fig.number)
@@ -610,6 +619,12 @@ class Presentation(Report):
                 if ncols <=1:
                     frame.append(tablenv)
                 else: frame.columns.cols[i].append(tablenv)
+
+            if section.p:
+                if isinstance(section.p, str):
+                    frame.append(section.p)
+                elif isinstance(section.p, list):
+                    frame.add_enumeration(section.p)
 
             if section.code:
                 if isinstance(section.code, str):

@@ -49,7 +49,7 @@ class Frame(Environment):
         if subtitle:
             self.append(
                 pl.NoEscape(r'\framesubtitle{')+
-                pl.escape_latex(title)+
+                pl.escape_latex(subtitle)+
                 pl.NoEscape('}')
             )
         if ncols:

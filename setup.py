@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name = 'leopard',
-      version = '0.2.3',
+      version = '0.2.4',
       description = 'Fast lab reporting python package',
       url = 'https://github.com/beukueb/leopard',
       author = 'Christophe Van Neste',
@@ -19,7 +19,7 @@ setup(name = 'leopard',
       },
       zip_safe = False,
       test_suite = 'nose.collector',
-      tests_require = ['nose']
+      tests_require = ['nose', 'lorem']
 )
 
 #To install with symlink, so that changes are immediately available:
