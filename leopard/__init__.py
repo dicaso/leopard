@@ -562,6 +562,7 @@ class Presentation(Report):
           colorel (str | list): color(settings) to color additional elements
             when provided as list, should be of format
             (rgb-tuple, rgb-tuple, [textcolor1-string, [textcolor2-string]])
+          show (bool): Display the file generated
         """
         import pylatex as pl
         from .extensions.latex import Frame
