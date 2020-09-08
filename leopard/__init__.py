@@ -555,6 +555,13 @@ class Presentation(Report):
         *kwargs* are send to doc.generate_pdf 
         -> see pylatex.Document.generate_pdf for help
         -> see https://deic-web.uab.cat/~iblanes/beamer_gallery/index.html for (color)theme options
+
+        Args:
+          theme (str): beamer theme
+          colortheme (str): beamer color theme
+          colorel (str | list): color(settings) to color additional elements
+            when provided as list, should be of format
+            (rgb-tuple, rgb-tuple, [textcolor1-string, [textcolor2-string]])
         """
         import pylatex as pl
         from .extensions.latex import Frame
@@ -580,8 +587,9 @@ class Presentation(Report):
                     pl.NoEscape(colorel)+
                     pl.NoEscape(r'}')
                 )
-        elif colorel and isinstance(colorel, list):
-            doc.preamble += colorel
+        elif colorel:
+            from .extensions.latex import get_beamer_color_preamble
+            doc.preamble += get_beamer_color_preamble(*colorel)
         
         doc.append(pl.NoEscape(r'\title{'+self.title+'}'))
         if self.addTime:
