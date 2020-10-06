@@ -9,7 +9,7 @@ class test_report(TestCase):
     def setUp(self):
         with patch('time.strftime', return_value='2017_01_01'):
             self.report = Report(title=MagicMock(),intro=Mock(),conclusion=MagicMock(),outname='mockname')
-        self.report.sections += [Mock(),Mock(),Mock()] #Mock sections
+        self.report.sections += [MagicMock(),MagicMock(),MagicMock()] #Mock sections
         self.kwargs = { #Mock arguments for making a section
             'figures': (('fig1',Mock()),('fig2',Mock())),
             'tables': (('tab1',Mock()),('tab2',Mock()))
@@ -19,10 +19,10 @@ class test_report(TestCase):
         del self.report, self.kwargs
 
     def test_append(self):
-        self.report.append(Mock(),Mock(),**self.kwargs)
+        self.report.append(MagicMock(),MagicMock(),**self.kwargs)
         self.assertEqual(len(self.report.sections),4) #4 because already 3 mock sections
         # Test appending as subsection
-        self.report.append(Mock(),Mock(),toSection=-1,**self.kwargs)
+        self.report.append(MagicMock(),MagicMock(),toSection=-1,**self.kwargs)
         # Check that subsection was not added as section
         self.assertEqual(len(self.report.sections),4)
         # Check that it was indeed added as subsection to section 0
@@ -54,7 +54,7 @@ class test_section(TestCase):
             'figures': (('fig1title',Mock()),('fig2title',Mock())),
             'tables': (('tab1title',Mock()),('tab2title',Mock()))
             }
-        self.section = Section(title=Mock(),text=Mock(),**self.kwargs)
+        self.section = Section(title=MagicMock(),text=Mock(),**self.kwargs)
 
     def tearDown(self):
         del self.section, self.kwargs

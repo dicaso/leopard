@@ -9,17 +9,25 @@ from pylatex.base_classes.command import Command
 from pylatex.package import Package
 
 class Verbatim(Environment):
-    def __init__(self, code, language=None):
+    def __init__(self, code, language=None, breaklines=True):
         super().__init__()
         self.content_separator = '\n'
         if not isinstance(code, str):
             import inspect
             code = inspect.getsource(code)
             language = 'python'
-        if language:
+        if language or breaklines:
             self._latex_name = 'lstlisting'
             self.packages.append(Package('listings'))
-            self.packages.append(Command('lstset', arguments={'language':language}))
+            if language:
+                self.packages.append(Command('lstset', arguments={'language':language}))
+            if breaklines:
+                self.packages.append(Command('lstset', arguments={'breaklines':'true'}))
+            #Other listing options to consider implementing
+            #\lstset{numbers=left, numberstyle=\scriptsize\ttfamily, numbersep=10pt, captionpos=b} 
+            #\lstset{backgroundcolor=\color{gray-5}}
+            #\lstset{basicstyle=\small\ttfamily}
+            #\lstset{framesep=4pt}
         self.append(pl.NoEscape(code))
 
 class Column(Environment):

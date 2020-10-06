@@ -50,7 +50,7 @@ class Section(object):
         if isinstance(title, str):
             self.title, self.subtitle = title.strip(), ''
         else: self.title, self.subtitle = title[0].strip(), title[1].strip()
-        self.p = text.strip() if isinstance(text, str) else text
+        self.p = text
         self.figs = OrderedDict(figures) if figures else OrderedDict()
         self.tabs = OrderedDict(tables) if tables else OrderedDict()
         self.subs = subsections if subsections else []
@@ -78,6 +78,16 @@ class Section(object):
                 self._subs = {s.title:s for s in self.subs}
                 return self._subs[key]
 
+    @property
+    def p(self):
+        return self.paragraphs
+
+    @p.setter
+    def p(self, value):
+        self.paragraphs = [
+            v.strip() for v in value
+        ] if isinstance(value, list) else value.strip()  
+    
     def append(self,*args,toSection=None,**kwargs):
         """Append a new section
         If toSection is None, section is appended to the main section/subs list.
@@ -415,19 +425,17 @@ class Report(Section):
                 section.sectionOutZip(zipcontainer,'s{}_{}/'.format(next(c),section.title.replace(' ','_')),
                                       figtype=figtype)
 
-    def outputPDF(self,show=False,**kwargs):
+    def outputPDF(self, show = False, geometry_options = None, **kwargs):
         """Makes a pdf report with pylatex
-        *kwargs* are send to doc.generate_pdf 
+        *kwargs* are send to doc.generate_pdf
         -> see pylatex.Document.generate_pdf for help
         """
         import pylatex as pl
         # geometry_options giving an error on Mac
-        #geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
-        doc = pl.Document()
-        #if geometry_options:
-        #    doc.preamble.append(pl.NoEscape(r'\usepackage{geometry}'))
-        #    doc.preamble.append(pl.NoEscape(
-        #        r'\geometry{'+'}{'.join([k if v is True else k+'='+v for k,v in geometry_options.items()])+'}'))
+        if geometry_options and isinstance(geometry_options, bool):
+            geometry_options = {"tmargin": "2cm", "lmargin": "2cm"}
+        
+        doc = pl.Document(geometry_options=geometry_options)
         
         #Following option avoids float error when to many unplaced figs or tabs
         # (to force placing floats also \clearpage can be used after a section for example)
@@ -443,7 +451,11 @@ class Report(Section):
         # Append introduction
         if self.p:
             with doc.create(pl.Section('Introduction')):
-                doc.append(renewliner(self.p))
+                doc.append(
+                    self.p.replace('\n',' ').replace('//','\n')
+                    if self.settings['doubleslashnewline'] else
+                    renewliner(self.p)
+                )
 
         # Sections
         c = count(1)
@@ -453,7 +465,11 @@ class Report(Section):
         # Append conclusion
         if self.conclusion:
             with doc.create(pl.Section('Conclusion')):
-                doc.append(renewliner(self.conclusion))
+                doc.append(
+                    self.conclusion.replace('\n',' ').replace('//','\n')
+                    if self.settings['doubleslashnewline'] else
+                    renewliner(self.conclusion)
+                )
 
         # Generate pdf
         doc.generate_pdf(self.outfile,**kwargs)
