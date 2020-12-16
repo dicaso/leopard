@@ -99,7 +99,6 @@ class Section(object):
         if not toSection and toSection is not 0:
             s = Section(*args,**kwargs)
             self.subs.append(s)
-            self.lastSection = s
             s._parentSection = self
             s._reportSection = self._reportSection
         else:
@@ -107,6 +106,10 @@ class Section(object):
             s = self.subs[toSection[0]].append(*args,toSection=toSection[1:],**kwargs)
         return s
 
+    @property
+    def lastSection(self):
+        return self.sections[-1]
+    
     @staticmethod
     def sectionWalker(section,callback,*args,walkTrace=tuple(),**kwargs):
         """
