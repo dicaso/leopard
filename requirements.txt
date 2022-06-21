@@ -3,7 +3,7 @@ kiwisolver==1.0.1
 leopard==0.1.4
 lxml==4.2.1
 matplotlib==2.2.2
-numpy==1.14.2
+numpy==1.22.0
 ordered-set==2.0.2
 pandas==0.22.0
 PyLaTeX==1.3.0
